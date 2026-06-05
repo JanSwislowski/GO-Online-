@@ -352,6 +352,7 @@ class App:
         while running:
             clock.tick(fps)
             keys=pygame.key.get_pressed()
+            self.handle_networking_in()
             self.update()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:

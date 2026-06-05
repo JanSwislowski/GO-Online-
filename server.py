@@ -15,6 +15,7 @@ def login():
 
     token = secrets.token_hex(16)
     tokens[token]=username
+    print(f"User {username} logged in with token {token}")
     return jsonify({"status": "ok", "token": token})
 
 @app.route("/create_room", methods=["POST"])
@@ -29,6 +30,7 @@ def create_room():
     room_id = secrets.token_hex(8)
 
     rooms[room_id] = {"host": tokens[token], "player1": tokens[token], "player2": None}
+
     return jsonify({"status": "ok", "roomid": room_id})
 
 @app.route("/get_rooms", methods=["POST"])
