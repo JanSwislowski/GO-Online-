@@ -4,7 +4,7 @@ import time
 from client import *
 SERVER_URL = "https://yourserver.com"
 
-ticks=1
+ticks=2
 def network_loop():
 
     while running:
