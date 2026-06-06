@@ -444,7 +444,7 @@ class App:
         if move:
             print(f"Move made: {move}")
             outgoing_queue.put({"type": "make move", "token": self.token, "room_id": self.room_id, "move": move})
-        print(f"My turn: {self.pages['game'].my_turn}")
+
         if self.pages["game"].my_turn==False:
             if not self.first_poll_game:
                 return

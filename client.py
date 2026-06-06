@@ -44,7 +44,7 @@ def start_game(token,room_id,host_color,settings):
     return response["status"]=="ok"
 def make_move(token,room_id,move):
     data={"token": token, "roomid": room_id, "move": move}
-    response = requests.post(f"{SERVER}/make_move", json=data)
+    response = requests.post(f"{SERVER}/move", json=data)
     print(response.json())
     response=response.json()
     return response["status"]=="ok"
