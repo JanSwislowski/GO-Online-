@@ -126,6 +126,7 @@ def move():
     if game_id not in games:
         return jsonify({"status": "error", "message": "Invalid game ID"})
     games[game_id]["move"]=data.get("move")
+    games[game_id]["turn"]="Black" if games[game_id]["turn"]=="White" else "White"
     return jsonify({"status": "ok" })
 
 @app.route("/poll_move", methods=["POST"])
@@ -139,6 +140,8 @@ def poll_move():
     game_id = data.get("gameid")
     if game_id not in games:
         return jsonify({"status": "error", "message": "Invalid game ID"})
+    if games[game_id]["turn"]!=data.get("color"):
+        return jsonify({"status": "ok", "move": None})
 
     move=games[game_id]["move"]
     games[game_id]["move"]=None

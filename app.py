@@ -449,7 +449,7 @@ class App:
             if not self.first_poll_game:
                 return
             self.first_poll_game=False
-            move=outgoing_queue.put({"type": "poll move", "token": self.token, "room_id": self.room_id})
+            move=outgoing_queue.put({"type": "poll move", "token": self.token, "room_id": self.room_id, "color": self.pages["game"].color_game})
             print("Polling move...")
             if move:
                 self.pages["game"].set_move(move)

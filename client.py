@@ -48,8 +48,8 @@ def make_move(token,room_id,move):
     print(response.json())
     response=response.json()
     return response["status"]=="ok"
-def poll_move(token,room_id):
-    data={"token": token, "gameid": room_id}
+def poll_move(token,room_id,color):
+    data={"token": token, "gameid": room_id, "color": color}
     response = requests.post(f"{SERVER}/poll_move", json=data)
     print(response.json())
     response=response.json()

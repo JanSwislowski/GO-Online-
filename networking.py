@@ -43,7 +43,7 @@ def network_loop():
                 success=make_move(action["token"], action["room_id"], action["move"])
                 incoming_queue.put({"type": "make_move_response", "success": success})
             elif action["type"]=="poll move":
-                move=poll_move(action["token"], action["room_id"])
+                move=poll_move(action["token"], action["room_id"], action["color"])
                 incoming_queue.put({"type": "poll_move_response", "move": move})
 
         time.sleep(1/ticks)
