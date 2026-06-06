@@ -42,3 +42,15 @@ def start_game(token,room_id,host_color,settings):
     print(response.json())
     response=response.json()
     return response["status"]=="ok"
+def make_move(token,room_id,move):
+    data={"token": token, "roomid": room_id, "move": move}
+    response = requests.post(f"{SERVER}/make_move", json=data)
+    print(response.json())
+    response=response.json()
+    return response["status"]=="ok"
+def poll_move(token,room_id):
+    data={"token": token, "roomid": room_id}
+    response = requests.post(f"{SERVER}/poll_move", json=data)
+    print(response.json())
+    response=response.json()
+    return response.get("move")

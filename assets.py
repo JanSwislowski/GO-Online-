@@ -1745,9 +1745,11 @@ class Board:
         if not check_legal_move(self.board,pos[0],pos[1],self.player):
             return False
         return True
-    def place(self,pos):
-        self.board[pos[0]][pos[1]]=self.player
-        update_board(self.board,self.player)
+    def place(self,pos,player):
+
+        self.board[pos[0]][pos[1]]=player
+        update_board(self.board,player)
+
         score=ch_score_board(self.board)
         self.white_ter=score[1]
         self.black_ter=score[2]
@@ -1760,8 +1762,8 @@ class Board:
             self.pressed=False
             pos=self.get_hovered(mp)
             if self.check_legal(pos) and self.turn:
-                self.place(pos)
-
+                self.place(pos,self.player)
+                return pos
         keys=pygame.key.get_pressed()
         if keys[pygame.K_SPACE]:
             print(ch_score_board(self.board))
@@ -1773,6 +1775,9 @@ class Board:
             self.show_ter=1
         if keys[pygame.K_h]:
             self.show_ter=0
+        return None
+    def set_move(self,pos):
+        self.place(pos,1^self.player)
 
 
 class Slider:

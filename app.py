@@ -212,7 +212,7 @@ class game_screen:
         board_width=300
         board_height=300
         stone_r=0.33
-        self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2,board_width,board_height,self.tiles,self.tiles,stone_r)
+        self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2,board_width,board_height,self.tiles,self.tiles,stone_r,player=self.color_game)
     def load_game(self,color,white_bias,black_bias,rule,tiles):
         self.tiles=tiles
         self.color_game=color
@@ -220,17 +220,29 @@ class game_screen:
         self.black_bias=black_bias
         self.rule=rule
         self.turn="Black"
+        self.my_turn=self.color_game==self.turn
         self.load()
         print(f"Game loaded with color: {color}, white bias: {white_bias}, black bias: {black_bias}, rule: {rule}, tiles: {tiles}")
     def close(self):
         self.surface=None
         self.board=None
         self.active=False
+    def move(self):
+        self.turn="White" if self.turn=="Black" else "Black"
+        self.my_turn=self.color_game==self.turn
+    def set_move(self,pos):
+        self.move()
+        self.board.set_move(pos)
+
+
     def update(self):
         if not self.active:
             return
-        self.board.turn=self.turn==self.color_game
-        self.board.update()
+        self.board.turn=self.my_turn
+        move=self.board.update()
+        if move:
+            self.move()
+            return move
     def handle_event(self,event):
         if not self.active:
             return
@@ -306,6 +318,8 @@ class App:
         self.username=-1
 
         self.host_wait=False
+
+        self.first_poll_game=True
     def get_surfaces_to_fade(self,prev_page,next_page,reverse=False):
         surface1=pygame.surface.Surface((self.width, self.height))
         surface2=pygame.surface.Surface((self.width, self.height))
@@ -382,6 +396,12 @@ class App:
                 self.switch_page("game")
             else:
                 outgoing_queue.put({"type": "poll start game", "token": self.token, "room_id": self.room_id})
+        elif event["type"]=="make_move_response":
+            if not event["success"]:
+                print("Move failed")
+        elif event["type"]=="poll_move_response":
+            if event["move"]:
+                self.pages["game"].set_move(event["move"])
 
 
     def handle_networking_in(self):
@@ -417,11 +437,31 @@ class App:
             self.next_surface = None
             self.pages[self.current_page].activate()
             self.fade_out = False
+    def update_game(self):
+        move=self.pages["game"].update()
+        if move:
+            print(f"Move made: {move}")
+            outgoing_queue.put({"type": "make move", "token": self.token, "room_id": self.room_id, "move": move})
+        if self.pages["game"].my_turn==False:
+            if not self.first_poll_game:
+                return
+            self.first_poll_game=False
+            move=outgoing_queue.put({"type": "poll move", "token": self.token, "room_id": self.room_id})
+            if move:
+                self.pages["game"].set_move(move)
+        else:
+            self.first_poll_game=True
+
+
+
     def update(self):
         if self.start_fade is not None:
             self.update_fade()
             return
-        self.pages[self.current_page].update()
+        if self.pages=="game" and not self.host_wait:
+            self.update_game()
+        else:
+            self.pages[self.current_page].update()
 
 
     def draw(self,surface):

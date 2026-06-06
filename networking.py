@@ -39,4 +39,11 @@ def network_loop():
                 resp_json=poll_start_game(action["token"], action["room_id"])
                 incoming_queue.put({"type": "poll_start_game_response", "response": resp_json})
 
+            elif action["type"]=="make move":
+                success=make_move(action["token"], action["room_id"], action["move"])
+                incoming_queue.put({"type": "make_move_response", "success": success})
+            elif action["type"]=="poll move":
+                move=poll_move(action["token"], action["room_id"])
+                incoming_queue.put({"type": "poll_move_response", "move": move})
+
         time.sleep(1/ticks)
