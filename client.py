@@ -29,10 +29,16 @@ def poll_host_room(token,room_id):
     data={"token": token, "roomid": room_id}
     response = requests.post(f"{SERVER}/poll_room", json=data)
     print(response.json())
+    response=response.json()
     return response["player2"]!=None
-
-def start_game(token,room_id):
+def poll_start_game(token,room_id):
     data={"token": token, "roomid": room_id}
+    response = requests.post(f"{SERVER}/poll_start_game", json=data)
+    print(response.json())
+    return response
+def start_game(token,room_id,host_color,settings):
+    data={"token": token, "roomid": room_id, "host color": host_color, "settings": settings}
     response = requests.post(f"{SERVER}/start_game", json=data)
     print(response.json())
+    response=response.json()
     return response["status"]=="ok"

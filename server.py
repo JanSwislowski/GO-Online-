@@ -5,7 +5,6 @@ app = Flask(__name__)
 
 tokens={}
 rooms={}
-
 games={}
 
 @app.route("/login", methods=["POST"])
@@ -65,13 +64,28 @@ def poll_room():
     token = data.get("token")
 
     if token not in tokens:
+        print(f"Invalid token: {token}",tokens)
         return jsonify({"status": "error", "message": "Invalid token"})
     room_id=data.get("roomid")
     if room_id not in rooms:
+        print(f"Invalid room ID: {room_id}", rooms)
         return jsonify({"status": "error", "message": "Invalid room ID"})
 
     return jsonify({"status": "ok", "player2": rooms[room_id]["player2"]})
 
+@app.route("/poll_start_game", methods=["POST"])
+def poll_start_game():
+    data = request.get_json()
+    token = data.get("token")
+
+    if token not in tokens:
+        return jsonify({"status": "error", "message": "Invalid token"})
+    room_id=data.get("roomid")
+    if room_id not in games:
+        return jsonify({"status": "game not ready", })
+
+    return jsonify({"status": "ok", "player2": rooms[room_id]["player2"],"p1 color":games[room_id]["player1 color"],
+                   "p2 color":games[room_id]["player2 color"], "settings": games[room_id]["settings"]})
 @app.route("/start_game", methods=["POST"])
 def start_game():
     data = request.get_json()
@@ -83,9 +97,19 @@ def start_game():
     room_id=data.get("roomid")
     if room_id not in rooms:
         return jsonify({"status": "error", "message": "Invalid room ID"})
-    games[room_id]={"player1": rooms[room_id]["player1"], "player2": rooms[room_id]["player2"]}
+
+    games[room_id]={"state":"started", "player1": rooms[room_id]["player1"], "player2": rooms[room_id]["player2"],"settings":data.get("settings")}
+
+    host_color=data.get("host color")
+
+    games[room_id]["player1 color"]=host_color
+    games[room_id]["player2 color"]="Black" if host_color=="White" else "White"
+
+    games[room_id]["turn"]="Black"
+
     rooms.pop(room_id)
-    return jsonify({"status": "ok"})
+
+    return jsonify({"status": "ok",})
 
 
 

@@ -1548,95 +1548,6 @@ class Icon:
                 return f
         return pygame.font.Font(None, size)
 
-class Comment:
-    def __init__(self,width,text="",icon=None,user=""):
-        self.color=(50,50,50,180)
-        self.padding=10
-
-        icon_r=15
-        self.icon=Icon(icon_r,icon_r+2,icon_r,image=icon)
-        font_size=18
-        self.user_name=Label(2*icon_r+10,int(icon_r/2),text=user,color_text=(200,200,255),font_size=font_size)
-
-
-        text_x=self.padding
-        text_y=40
-        self.text=Label(text_x,text_y,text=text,max_width=width-text_x-self.padding,color_text=(220,220,255),font_size=16)
-        self.w=width
-
-        self.h=text_y+self.text.get_rect().h+self.padding
-        self.surface=pygame.Surface((width,self.h),pygame.SRCALPHA)
-    def draw(self):
-        self.surface.fill(self.color)
-        self.user_name.draw(self.surface)
-        self.icon.draw(self.surface)
-        self.text.draw(self.surface)
-        return self.surface
-    def update(self):
-        self.icon.update()
-
-    def handle_event(self,event,mouse_delta=(0,0)):
-        self.icon.handle_event(event,mouse_delta)
-class ComentSection:
-    def __init__(self,width,height):
-        self.surface=pygame.Surface((width,height),pygame.SRCALPHA)
-        self.width=width
-        self.height=height
-        self.rect=self.surface.get_rect()
-
-        self.comments=[]
-        self.c_height=0
-
-        self.diff=3
-        self.scroll=0
-        self.curent_scroll=0
-        self.prev_mouse_y=None
-        self.is_scrolled=False
-    def get_height(self):
-        h=0
-        for comment in self.comments:
-            h+=comment.h+self.diff
-        return h
-    def add_comment(self,text="",icon=None,user=""):
-        self.comments.append(Comment(self.width,text,icon,user))
-        self.c_height=self.get_height()
-    def draw(self):
-        self.surface.fill((0,0,0,0))
-        scroll=self.scroll+self.curent_scroll
-        # print(scroll)
-        y=-max(min(scroll,self.c_height-self.height),0)
-        for comment in self.comments:
-            self.surface.blit(comment.draw(),(0,y))
-            y+=comment.h+self.diff
-            pygame.draw.rect(self.surface,(200,200,200),(0,y-self.diff,self.width,self.diff))
-        return self.surface
-    def is_hovered(self,mp):
-        return self.rect.collidepoint(mp)
-    def update(self,mouse_delta=(0,0)):
-        mouse_pos=add_vectors(pygame.mouse.get_pos(),mouse_delta)
-
-        for comment in self.comments:
-            comment.update()
-        if pygame.mouse.get_pressed()[0] and self.is_scrolled:
-            self.curent_scroll=self.prev_mouse_y-pygame.mouse.get_pos()[1]
-        elif pygame.mouse.get_pressed()[0] and self.is_hovered(mouse_pos):
-            self.prev_mouse_y=pygame.mouse.get_pos()[1]
-            self.is_scrolled=True
-        else:
-            self.scroll+=self.curent_scroll
-            self.scroll=max(min(self.scroll,self.c_height-self.height),0)
-            self.curent_scroll=0
-            self.prev_mouse_y=None
-            self.is_scrolled=False
-
-    def handle_events(self,event,mouse_delta=(0,0)):
-        scroll=self.scroll+self.curent_scroll
-        y=-max(min(scroll,self.c_height-self.height),0)
-        for comment in self.comments:
-            comment.handle_event(event,add_vectors(mouse_delta,(0,-y)))
-            y+=comment.h+self.diff
-
-
 class Picker:
     def __init__(self, x, y, width, height, options, font):
         self.rect = pygame.Rect(x, y, width, height)
@@ -1767,6 +1678,8 @@ class Board:
 
         self.pressed=False
 
+        self.turn=False
+
 
     def draw(self,surface):
         pygame.draw.rect(surface,self.color,self.rect)
@@ -1846,7 +1759,7 @@ class Board:
         elif self.pressed:
             self.pressed=False
             pos=self.get_hovered(mp)
-            if self.check_legal(pos):
+            if self.check_legal(pos) and self.turn:
                 self.place(pos)
 
         keys=pygame.key.get_pressed()
@@ -2148,6 +2061,41 @@ class ServerList:
         for server in self.servers:
             server.handle_event(event,(-self.rect.x,-self.rect.y))
 
-
+class Picker2:
+    def __init__(self,cx,y,width,height,font,options=[],color=(50,50,50),chosen_color=(100,100,100),text_color=(255,255,255)):
+        x=cx-width/2
+        self.rect=pygame.Rect(x,y,width,height)
+        self.options=options
+        self.color=color
+        self.chosen_color=chosen_color
+        self.text_color=text_color
+        self.chosen=0
+        self.height=height
+        self.font=font
+    def draw(self,surface):
+        w=self.rect.width/len(self.options)
+        r=4
+        for i,option in enumerate(self.options):
+            color=self.chosen_color if i==self.chosen else self.color
+            option_rect=pygame.Rect(self.rect.x+i*w,self.rect.y,w,self.height)
+            if i==0:
+                pygame.draw.rect(surface, color, option_rect, border_top_left_radius=r, border_bottom_left_radius=r)
+            elif i==len(self.options)-1:
+                pygame.draw.rect(surface, color, option_rect, border_top_right_radius=r, border_bottom_right_radius=r)
+            else:
+                pygame.draw.rect(surface,color,option_rect)
+            label=Label(option_rect.centerx,option_rect.centery,text=option,color_text=self.text_color,font=self.font,pos_type="center")
+            label.draw(surface)
+    def update(self):
+        if pygame.mouse.get_pressed()[0]:
+            mouse_pos=pygame.mouse.get_pos()
+            if self.rect.collidepoint(mouse_pos):
+                w=self.rect.width/len(self.options)
+                clicked_option=int((mouse_pos[0]-self.rect.x)/w)
+                self.chosen=clicked_option
+    def get_selected(self):
+        return self.options[self.chosen]
+    def rest(self):
+        self.chosen=0
 
 

@@ -3,13 +3,6 @@ import pygame
 import numpy as np
 
 
-from assets import ComentSection
-def generate_coment_section(comments: list[dict],width, height):
-    c=ComentSection(width, height)
-    for comment in comments:
-        c.add_comment(user=comment["user"], text=comment["text"])
-    return c
-
 
 def fade_surfaces(surface1: pygame.Surface, surface2: pygame.Surface, ratio: float) -> pygame.Surface:
     ratio = max(0.0, min(1.0, ratio))

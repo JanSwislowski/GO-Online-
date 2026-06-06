@@ -1,11 +1,12 @@
-from assets import TextBox, Button, Label,Icon,Picker,Slider,Board,ServerList
+from assets import TextBox, Button, Label,Icon,Picker,Slider,Board,ServerList,Picker2
 from functions import *
 from setup import running,incoming_queue,outgoing_queue
+import random
 
-
-font=pygame.font.SysFont("TimesNewRoman", 24)
+font=pygame.font.SysFont("TimesNewRoman", 20)
+font_mid=pygame.font.SysFont("TimesNewRoman", 30)
 small=pygame.font.SysFont("TimesNewRoman", 18)
-font_verybig=pygame.font.SysFont("TimesNewRoman", 60)
+font_verybig=pygame.font.SysFont("TimesNewRoman", 50)
 class ChooseScreen:
     def __init__(self,width, height,host_page,join_page):
         self.login=True
@@ -115,25 +116,34 @@ class game_setup_screen:
         self.prev_page=prev_page
     def load(self):
         self.surface=pygame.surface.Surface((self.w, self.h))
-        self.label=Label(self.w//2, 50, "Game Setup", font=font_verybig,pos_type="center")
+        self.label=Label(self.w//2, 40, "Game Setup", font=font_verybig,pos_type="center")
         max_tiles=20
         dist=60
-        y=150
-        x=100
-        self.tiles_slider=Slider(x, y, 200, 20,min_val=2,max_val=max_tiles,
+        y=120
+        width=200
+        self.tiles_slider=Slider(self.w//2-width//2, y, width, 20,min_val=2,max_val=max_tiles,
                                  initial=10,label="Tiles",show_value=True,text_color=(0,0,0),font=small)
         max_bias=40
-        self.white_bias_slider=Slider(x, y+dist, 200, 20,min_val=0,max_val=max_bias,
+        self.white_bias_slider=Slider(self.w//2-width//2, y+dist, width, 20,min_val=0,max_val=max_bias,
                                       initial=7.5,label="White Bias",show_value=True,value_format="{:.1f}",step=0.5,text_color=(0,0,0),font=small)
 
-        self.black_bias_slider=Slider(x, y+dist*2, 200, 20,min_val=0,max_val=max_bias,
+        self.black_bias_slider=Slider(self.w//2-width//2, y+dist*2, width, 20,min_val=0,max_val=max_bias,
                                       initial=0,label="Black Bias",show_value=True,value_format="{:.1f}",step=0.5,text_color=(0,0,0),font=small)
-        self.rules=Label(self.w//2, y+dist*3+40, "Rules:", font_size=30,pos_type="center")
-        self.rule_picker=Picker(100, y+dist*4+10, 200, 30, options=["SuperIdol","Samurai"],font=font)
-        h=50
-        padding=50
-        padding2=30
-        w=160
+
+        color=(100,149,237)
+        alpha=0.7
+        w=280
+        self.color_label=Label(self.w//2, y+dist*3, "Color:", font=font_mid,pos_type="center",color_text=(0,0,0))
+        self.color_picker=Picker2(self.w//2, y+dist*3+24, w, 35,font, options=["Random","Black","White"],color=darken_rgb(color,alpha),chosen_color=color,text_color=(0,0,0))
+
+        w=200
+        self.rules=Label(self.w//2, y+dist*4+35, "Rules:", font=font_mid,pos_type="center")
+        self.rule_picker=Picker2(self.w//2, y+dist*4+35+24, w, 35, options=["SuperIdol","Samurai"],font=font,color=darken_rgb(color,alpha),chosen_color=color,text_color=(0,0,0))
+
+        h=45
+        padding=20
+        padding2=20
+        w=140
         self.accept_button=Button(self.w-w-padding2,self.h-h-padding,w,h,"Accept",callback=self.next_page)
         self.back_button=Button(padding2,self.h-h-padding,w,h,"Back",callback=self.prev_page)
     def update(self):
@@ -142,10 +152,10 @@ class game_setup_screen:
         self.rule_picker.update()
         self.accept_button.update()
         self.back_button.update()
+        self.color_picker.update()
     def handle_event(self,event):
         if not self.active:
             return
-        self.rule_picker.handle_event(event)
         self.accept_button.handle_event(event)
         self.white_bias_slider.handle_event(event)
         self.black_bias_slider.handle_event(event)
@@ -161,6 +171,8 @@ class game_setup_screen:
         self.rule_picker.draw(self.surface)
         self.accept_button.draw(self.surface)
         self.back_button.draw(self.surface)
+        self.color_picker.draw(self.surface)
+        self.color_label.draw(self.surface)
         return self.surface
     def close(self):
         #set all to None
@@ -173,6 +185,8 @@ class game_setup_screen:
         self.black_bias_slider=None
         self.tiles_slider=None
         self.label=None
+        self.color_picker=None
+        self.color_label=None
     def activate(self):
         self.active=True
 
@@ -181,13 +195,31 @@ class game_screen:
         self.color=(200, 200, 200)
         self.w=width
         self.h=height
+
         self.active=False
-    def load(self,tiles,white_bias,black_bias,rule):
+        self.color_game=None
+        self.white_bias=None
+        self.black_bias=None
+
+        self.white_prisoners=0
+        self.black_prisoners=0
+
+        self.turn=""
+
+    def load(self,tiles):
         self.surface=pygame.surface.Surface((self.w, self.h))
         board_width=300
         board_height=300
         stone_r=0.33
         self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2,board_width,board_height,tiles,tiles,stone_r)
+    def load_game(self,color,white_bias,black_bias,rule,tiles):
+        self.color_game=color
+        self.white_bias=white_bias
+        self.black_bias=black_bias
+        self.rule=rule
+        self.turn="Black"
+        self.load(tiles)
+        print(f"Game loaded with color: {color}, white bias: {white_bias}, black bias: {black_bias}, rule: {rule}, tiles: {tiles}")
     def close(self):
         self.surface=None
         self.board=None
@@ -195,6 +227,7 @@ class game_screen:
     def update(self):
         if not self.active:
             return
+        self.board.turn=self.turn==self.color_game
         self.board.update()
     def handle_event(self,event):
         if not self.active:
@@ -240,8 +273,12 @@ class join_screen:
 class App:
     def __init__(self):
         pygame.init()
-        self.width = 400
-        self.height = 600
+        ratio=4/3
+        x=450
+        W=int(x*(1/ratio))
+        H=(x*ratio)
+        self.width = W
+        self.height = H
         self.screen=pygame.display.set_mode((self.width, self.height))
 
         self.pages={
@@ -265,6 +302,8 @@ class App:
         self.token=-1
         self.room_id=-1
         self.username=-1
+
+        self.host_wait=False
     def get_surfaces_to_fade(self,prev_page,next_page,reverse=False):
         surface1=pygame.surface.Surface((self.width, self.height))
         surface2=pygame.surface.Surface((self.width, self.height))
@@ -275,26 +314,71 @@ class App:
             self.prev_surface,self.next_surface=surface2, surface1
             return
         self.prev_surface, self.next_surface= surface1, surface2
+
     def handle_networking_out(self,page_name):
         if page_name=="game" and self.current_page=="host":
-            outgoing_queue.put({"type": "create room", "token": self.token})
+            outgoing_queue.put({"type": "create room", "token": self.token,})
+            self.host_wait=True
         if page_name=="join":
             outgoing_queue.put({"type": "get rooms", "token": self.token})
-        if page_name=="choose":
+        if page_name=="choose" and self.current_page=="start":
             outgoing_queue.put({"type": "login","username": self.pages["start"].name_text_box.get_text()})
+    def host_game(self):
+        host_color = self.pages["host"].color_picker.get_selected()
+        tiles=self.pages["host"].tiles_slider.value
+        white_bias=self.pages["host"].white_bias_slider.value
+        black_bias=self.pages["host"].black_bias_slider.value
+        rule=self.pages["host"].rule_picker.get_selected()
+        if host_color == "Random":
+            host_color = random.choice(["Black", "White"])
+        outgoing_queue.put({"type": "start game", "token": self.token, "room_id": self.room_id,
+                            "host color": host_color,
+                            "settings": {
+                                "tiles": tiles,
+                                "white_bias": white_bias,
+                                "black_bias": black_bias,
+                                "rule": rule,
+                            }
+        })
+        self.pages["game"].load_game(tiles=tiles,white_bias=white_bias,black_bias=black_bias,rule=rule,color=host_color)
 
     def server_event_handler(self,event):
         if event["type"]=="logged_in":
             self.token=event["token"]
         elif event["type"]=="room_created":
             self.room_id=event["room_id"]
+            outgoing_queue.put({"type": "poll host room", "token": self.token, "room_id": self.room_id})
         elif event["type"]=="rooms_list":
             for room_id, info in event["rooms"].items():
-                self.pages["join"].add_server(f"{room_id}: {info['host']}")
+                self.pages["join"].add_server(f"{info['host']}")
+
         elif event["type"]=="join_room_response":
             if event["response"]["status"]=="ok":
                 self.room_id=event["response"]["roomid"]
+
+        elif event["type"]=="poll_host_response":
+
+            if event["player2_joined"]:
+                self.host_game()
+            else:
+                outgoing_queue.put({"type": "poll host room", "token": self.token, "room_id": self.room_id})
+
+        elif event["type"]=="start_game_response":
+            if event["success"]:
+                self.host_wait=False
+
+        elif event["type"]=="poll_start_game_response":
+            if event["response"]["status"]=="ok":
+                self.pages["game"].load_game(tiles=event["response"]["settings"]["tiles"],
+                                        white_bias=event["response"]["settings"]["white_bias"],
+                                        black_bias=event["response"]["settings"]["black_bias"],
+                                        rule=event["response"]["settings"]["rule"],
+                                             color=event["response"]["p2 color"])
                 self.switch_page("game")
+            else:
+                outgoing_queue.put({"type": "poll start game", "token": self.token, "room_id": self.room_id})
+
+
     def handle_networking_in(self):
         while not incoming_queue.empty():
             event = incoming_queue.get()
@@ -304,7 +388,7 @@ class App:
         if page_name not in self.pages:
             return
         if page_name=="game":
-            self.pages[page_name].load(tiles=self.pages["host"].tiles_slider.value,white_bias=self.pages["host"].white_bias_slider.value,black_bias=self.pages["host"].black_bias_slider.value,rule=self.pages["host"].rule_picker.get_selected())
+            self.pages[page_name].load(tiles=self.pages["host"].tiles_slider.value)
         else: self.pages[page_name].load()
 
         self.handle_networking_out(page_name)
