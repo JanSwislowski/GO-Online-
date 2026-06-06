@@ -205,20 +205,22 @@ class game_screen:
         self.black_prisoners=0
 
         self.turn=""
+        self.tiles=7
 
-    def load(self,tiles):
+    def load(self):
         self.surface=pygame.surface.Surface((self.w, self.h))
         board_width=300
         board_height=300
         stone_r=0.33
-        self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2,board_width,board_height,tiles,tiles,stone_r)
+        self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2,board_width,board_height,self.tiles,self.tiles,stone_r)
     def load_game(self,color,white_bias,black_bias,rule,tiles):
+        self.tiles=tiles
         self.color_game=color
         self.white_bias=white_bias
         self.black_bias=black_bias
         self.rule=rule
         self.turn="Black"
-        self.load(tiles)
+        self.load()
         print(f"Game loaded with color: {color}, white bias: {white_bias}, black bias: {black_bias}, rule: {rule}, tiles: {tiles}")
     def close(self):
         self.surface=None
@@ -391,7 +393,7 @@ class App:
         if page_name not in self.pages:
             return
         if page_name=="game":
-            self.pages[page_name].load(tiles=self.pages["host"].tiles_slider.value)
+            self.pages[page_name].load()
         else: self.pages[page_name].load()
 
         self.handle_networking_out(page_name)

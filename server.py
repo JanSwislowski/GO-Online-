@@ -77,15 +77,17 @@ def poll_room():
 def poll_start_game():
     data = request.get_json()
     token = data.get("token")
-
+    print(f"Polling start game for token: {token}, room_id: {data.get('roomid')}")
     if token not in tokens:
         return jsonify({"status": "error", "message": "Invalid token"})
     room_id=data.get("roomid")
     if room_id not in games:
         return jsonify({"status": "game not ready", })
 
-    return jsonify({"status": "ok", "player2": rooms[room_id]["player2"],"p1 color":games[room_id]["player1 color"],
+    return jsonify({"status": "ok", "player1": games[room_id]["player1"],"p1 color":games[room_id]["player1 color"],
                    "p2 color":games[room_id]["player2 color"], "settings": games[room_id]["settings"]})
+
+
 @app.route("/start_game", methods=["POST"])
 def start_game():
     data = request.get_json()
