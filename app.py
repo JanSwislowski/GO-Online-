@@ -206,6 +206,7 @@ class game_screen:
 
         self.turn=""
         self.tiles=7
+        self.loaded=False
 
     def load(self):
         self.surface=pygame.surface.Surface((self.w, self.h))
@@ -223,10 +224,12 @@ class game_screen:
         self.my_turn=self.color_game==self.turn
         self.load()
         print(f"Game loaded with color: {color}, white bias: {white_bias}, black bias: {black_bias}, rule: {rule}, tiles: {tiles}")
+        self.loaded=True
     def close(self):
         self.surface=None
         self.board=None
         self.active=False
+        self.loaded=False
     def move(self):
         self.turn="White" if self.turn=="Black" else "Black"
         self.my_turn=self.color_game==self.turn
@@ -236,7 +239,7 @@ class game_screen:
 
 
     def update(self):
-        if not self.active:
+        if not self.active or not self.loaded:
             return
         self.board.turn=self.my_turn
         move=self.board.update()

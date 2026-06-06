@@ -114,33 +114,6 @@ def start_game():
 
     return jsonify({"status": "ok",})
 
-
-@app.route("/start_game", methods=["POST"])
-def start_game():
-    data = request.get_json()
-    token = data.get("token")
-
-    if token not in tokens:
-        return jsonify({"status": "error", "message": "Invalid token"})
-
-    room_id = data.get("roomid")
-    if room_id not in rooms:
-        return jsonify({"status": "error", "message": "Invalid room ID"})
-
-    games[room_id] = {"state": "started", "player1": rooms[room_id]["player1"], "player2": rooms[room_id]["player2"],
-                      "settings": data.get("settings")}
-
-    host_color = data.get("host color")
-
-    games[room_id]["player1 color"] = host_color
-    games[room_id]["player2 color"] = "Black" if host_color == "White" else "White"
-
-    games[room_id]["turn"] = "Black"
-    games[room_id]["move"] = None
-
-    rooms.pop(room_id)
-
-    return jsonify({"status": "ok", })
 @app.route("/move", methods=["POST"])
 def move():
     data = request.get_json()
@@ -156,7 +129,7 @@ def move():
     return jsonify({"status": "ok" })
 
 @app.route("/poll_move", methods=["POST"])
-def move():
+def poll_move():
     data = request.get_json()
     token = data.get("token")
 
