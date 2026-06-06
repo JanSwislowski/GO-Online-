@@ -2000,12 +2000,13 @@ class SimpleButton:
 
 
 class Server_snippet:
-    def __init__(self,x,y,width,height,user,font):
+    def __init__(self,x,y,width,height,user,font,callback,room_id):
+        self.room_id=room_id
         self.rect=pygame.Rect(x,y,width,height)
         self.user=Label(x+10,y+height//2-10,text=user,color_text=(220,220,255),font=font)
         self.button_cx=x+width-50
         self.user_x=x+10
-        self.button=SimpleButton(x+width-90,y+height//2-15,70,30,(70,130,180),"images/play.png",5,)
+        self.button=SimpleButton(x+width-90,y+height//2-15,70,30,(70,130,180),"images/play.png",5,call_back=callback)
         self.color=(50,50,50)
     def draw(self,surface):
         r=3
@@ -2049,13 +2050,13 @@ class ServerList:
         pygame.draw.rect(self.surface,darken_rgb(self.color,0.4),self.surface.get_rect(),b,border_radius=r)
 
         surface.blit(self.surface,self.rect.topleft)
-    def add_server(self,user):
+    def add_server(self,user,join_callback,room_id):
         h=50
         y=self.legend_rect.bottom+self.spadding
         if self.servers:
             y=self.servers[-1].rect.bottom+self.spadding
         paddingx=self.padding+self.spadding
-        snippet=Server_snippet(paddingx,y,self.rect.width-2*paddingx,h,user,font)
+        snippet=Server_snippet(paddingx,y,self.rect.width-2*paddingx,h,user,font,join_callback,room_id)
         self.servers.append(snippet)
     def handle_event(self,event):
         for server in self.servers:

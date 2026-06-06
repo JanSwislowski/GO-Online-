@@ -268,8 +268,8 @@ class join_screen:
         return self.surface
     def activate(self):
         self.active=True
-    def add_server(self,name):
-        self.list.add_server(name)
+    def add_server(self,name,join_callback,room_id):
+        self.list.add_server(name,join_callback,room_id)
 class App:
     def __init__(self):
         pygame.init()
@@ -341,7 +341,8 @@ class App:
                             }
         })
         self.pages["game"].load_game(tiles=tiles,white_bias=white_bias,black_bias=black_bias,rule=rule,color=host_color)
-
+    def join_room(self,room_id):
+        outgoing_queue.put({"type": "join room", "token": self.token, "room_id": room_id})
     def server_event_handler(self,event):
         if event["type"]=="logged_in":
             self.token=event["token"]
@@ -350,7 +351,7 @@ class App:
             outgoing_queue.put({"type": "poll host room", "token": self.token, "room_id": self.room_id})
         elif event["type"]=="rooms_list":
             for room_id, info in event["rooms"].items():
-                self.pages["join"].add_server(f"{info['host']}")
+                self.pages["join"].add_server(f"{info['host']}",lambda: self.join_room(room_id),room_id)
 
         elif event["type"]=="join_room_response":
             if event["response"]["status"]=="ok":
