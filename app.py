@@ -7,6 +7,7 @@ font=pygame.font.SysFont("TimesNewRoman", 20)
 font_mid=pygame.font.SysFont("TimesNewRoman", 30)
 small=pygame.font.SysFont("TimesNewRoman", 18)
 font_verybig=pygame.font.SysFont("TimesNewRoman", 50)
+font_extremely_humongous=pygame.font.SysFont("TimesNewRoman", 70)
 class ChooseScreen:
     def __init__(self,width, height,host_page,join_page):
         self.login=True
@@ -287,6 +288,48 @@ class join_screen:
         self.active=True
     def add_server(self,name,join_callback,room_id):
         self.list.add_server(name,join_callback,room_id)
+
+class loading_screen:
+    def __init__(self,width,height):
+        self.color=(200, 200, 200)
+        self.width=width
+        self.height=height
+        self.alpha=150
+        self.active=False
+        self.surface=pygame.surface.Surface((self.width, self.height), pygame.SRCALPHA)
+        a=100
+        self.img=pygame.transform.smoothscale(pygame.image.load("images/jingjang.png"),(a,a))
+        self.da=8
+    def load(self,text,prev_surface):
+        dy=120
+        self.label=Label(self.width//2, self.height//2-dy, text, font=font_extremely_humongous,pos_type="center",color_text=(255,255,255))
+        self.bg = prev_surface.copy()
+        dark_overlay = pygame.Surface(self.bg.get_size(), pygame.SRCALPHA)
+        dark_overlay.fill((0, 0, 0, self.alpha))
+        self.bg.blit(dark_overlay, (0, 0))
+        self.angle=0
+    def close(self):
+        self.label=None
+        self.bg=None
+        self.angle=0
+    def update(self):
+        self.angle+=self.da
+        self.angle%=360
+    def draw(self):
+        self.surface.fill((0,0,0,0))
+        self.surface.blit(self.bg,(0,0))
+
+        rotated_img=pygame.transform.rotate(self.img,self.angle)
+        rect=rotated_img.get_rect(center=(self.width//2,self.height//2+50))
+
+        self.surface.blit(rotated_img,rect)
+        self.label.draw(self.surface)
+        return self.surface
+    def activate(self):
+        pass
+    def handle_event(self,event):
+        pass
+
 class App:
     def __init__(self):
         pygame.init()
@@ -299,11 +342,12 @@ class App:
         self.screen=pygame.display.set_mode((self.width, self.height))
 
         self.pages={
-                "start": StartScreen(self.width, self.height,lambda: self.switch_page("choose")),
+                "start": StartScreen(self.width, self.height,lambda: self.switch_page("load")),
                 "choose": ChooseScreen(self.width, self.height,lambda: self.switch_page("host"),lambda: self.switch_page("join")),
-                "host": game_setup_screen(self.width, self.height,lambda: self.switch_page("choose"),lambda: self.switch_page("game")),
+                "host": game_setup_screen(self.width, self.height,lambda: self.switch_page("choose"),lambda: self.switch_page("load")),
                 "game": game_screen(self.width, self.height),
-                "join": join_screen(self.width, self.height)
+                "join": join_screen(self.width, self.height),
+                "load": loading_screen(self.width, self.height),
         }
 
 
@@ -339,7 +383,7 @@ class App:
             self.host_wait=True
         if page_name=="join":
             outgoing_queue.put({"type": "get rooms", "token": self.token})
-        if page_name=="choose" and self.current_page=="start":
+        if self.current_page=="start":
             outgoing_queue.put({"type": "login","username": self.pages["start"].name_text_box.get_text()})
     def host_game(self):
         host_color = self.pages["host"].color_picker.get_selected()
@@ -364,6 +408,7 @@ class App:
     def server_event_handler(self,event):
         if event["type"]=="logged_in":
             self.token=event["token"]
+            self.switch_page("choose")
         elif event["type"]=="room_created":
             self.room_id=event["room_id"]
             outgoing_queue.put({"type": "poll host room", "token": self.token, "room_id": self.room_id})
@@ -387,6 +432,7 @@ class App:
         elif event["type"]=="start_game_response":
             if event["success"]:
                 self.host_wait=False
+                self.switch_page("game")
 
         elif event["type"]=="poll_start_game_response":
             if event["response"]["status"]=="ok":
@@ -417,8 +463,12 @@ class App:
 
         if page_name not in self.pages:
             return
-        if page_name=="game":
-            self.pages[page_name].load()
+        if page_name=="load":
+            if self.current_page =="host":
+                txt="Waiting..."
+            else:
+                txt="Loading"
+            self.pages["load"].load(txt,self.pages[self.current_page].draw(),)
         else: self.pages[page_name].load()
 
         self.handle_networking_out(page_name)
@@ -489,8 +539,8 @@ class App:
         while running:
             clock.tick(fps)
             keys=pygame.key.get_pressed()
-            self.handle_networking_in()
             self.update()
+            self.handle_networking_in()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
