@@ -404,6 +404,9 @@ class App:
         elif event["type"]=="poll_move_response":
             if event["move"]:
                 self.pages["game"].set_move(event["move"])
+            else:
+                print("Polling move...")
+                outgoing_queue.put({"type": "poll move", "token": self.token, "room_id": self.room_id, "color": self.pages["game"].color_game})
 
 
     def handle_networking_in(self):
