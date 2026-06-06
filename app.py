@@ -378,7 +378,7 @@ class App:
         self.prev_surface, self.next_surface= surface1, surface2
 
     def handle_networking_out(self,page_name):
-        if page_name=="game" and self.current_page=="host":
+        if page_name=="load" and self.current_page=="host":
             outgoing_queue.put({"type": "create room", "token": self.token,})
             self.host_wait=True
         if page_name=="join":
