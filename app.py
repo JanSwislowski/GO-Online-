@@ -332,7 +332,7 @@ class App:
         if host_color == "Random":
             host_color = random.choice(["Black", "White"])
         outgoing_queue.put({"type": "start game", "token": self.token, "room_id": self.room_id,
-                            "host color": host_color,
+                            "host_color": host_color,
                             "settings": {
                                 "tiles": tiles,
                                 "white_bias": white_bias,
@@ -356,6 +356,8 @@ class App:
         elif event["type"]=="join_room_response":
             if event["response"]["status"]=="ok":
                 self.room_id=event["response"]["roomid"]
+                outgoing_queue.put({"type": "poll start game", "token": self.token, "room_id": self.room_id})
+
 
         elif event["type"]=="poll_host_response":
 
@@ -405,7 +407,8 @@ class App:
             self.get_surfaces_to_fade(self.next_page,self.next_page,reverse=True)
             self.fade_out=True
         if pygame.time.get_ticks() - self.start_fade >= self.fade_duration:
-            self.pages[self.current_page].close()
+            if self.current_page not in ["host"]:
+                self.pages[self.current_page].close()
             self.start_fade = None
             self.current_page = self.next_page
             self.prev_surface = None
