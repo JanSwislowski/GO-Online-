@@ -307,7 +307,6 @@ class App:
         }
 
 
-        functions=[lambda: self.switch_page("profile"),lambda: self.switch_page("feed"),lambda: self.switch_page("battle"),lambda: print("add")]
         self.next_page=None
 
         self.start_fade=None
@@ -445,11 +444,13 @@ class App:
         if move:
             print(f"Move made: {move}")
             outgoing_queue.put({"type": "make move", "token": self.token, "room_id": self.room_id, "move": move})
+        print(f"My turn: {self.pages['game'].my_turn}")
         if self.pages["game"].my_turn==False:
             if not self.first_poll_game:
                 return
             self.first_poll_game=False
             move=outgoing_queue.put({"type": "poll move", "token": self.token, "room_id": self.room_id})
+            print("Polling move...")
             if move:
                 self.pages["game"].set_move(move)
         else:
@@ -461,7 +462,7 @@ class App:
         if self.start_fade is not None:
             self.update_fade()
             return
-        if self.pages=="game" and not self.host_wait:
+        if self.current_page=="game" and not self.host_wait:
             self.update_game()
         else:
             self.pages[self.current_page].update()

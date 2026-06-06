@@ -1665,7 +1665,7 @@ class Board:
         self.black_stone_img=pygame.transform.smoothscale(pygame.image.load("images/black.png"),(stone_w,stone_h)).convert_alpha()
         self.white_stone_img=pygame.transform.smoothscale(pygame.image.load("images/white.png"),(stone_w,stone_h)).convert_alpha()
         self.stones=[self.black_stone_img,self.white_stone_img]
-        if player=="white":
+        if player=="White":
             self.stone=self.white_stone_img
             self.player=1
         else:
