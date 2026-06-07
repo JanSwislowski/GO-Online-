@@ -49,6 +49,6 @@ def network_loop():
 
             elif action["type"]=="pass turn":
                 success=pass_move(action["token"], action["gameid"])
-                incoming_queue.put({"type": "make pass response","succes": success})
+                incoming_queue.put({"type": "make pass response","success": success})
 
         time.sleep(1/ticks)
