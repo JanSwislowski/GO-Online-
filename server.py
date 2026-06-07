@@ -109,6 +109,7 @@ def start_game():
 
     games[room_id]["turn"]="Black"
     games[room_id]["move"]=None
+    games[room_id]["pass"]=False
 
     rooms.pop(room_id)
 
@@ -145,7 +146,28 @@ def poll_move():
 
     move=games[game_id]["move"]
     games[game_id]["move"]=None
-    return jsonify({"status": "ok" ,"move":move})
+
+    passt=games[game_id]["pass"]
+    games[game_id]["pass"]=False
+
+    return jsonify({"status": "ok" ,"move":move,"pass":passt})
+
+
+@app.route("/pass_turn", methods=["POST"])
+def pass_turn():
+    data = request.get_json()
+    token = data.get("token")
+
+    if token not in tokens:
+        return jsonify({"status": "error", "message": "Invalid token"})
+
+    game_id = data.get("gameid")
+    if game_id not in games:
+        return jsonify({"status": "error", "message": "Invalid game ID"})
+
+    games[game_id]["pass"]=True
+    return jsonify({"status": "ok" })
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=9999)

@@ -1,13 +1,21 @@
-from assets import TextBox, Button, Label,Icon,Picker,Slider,Board,ServerList,Picker2
+import pygame.transform
+
+from assets import TextBox, Button, Label,Icon,Picker,Slider,Board,ServerList,Picker2,SimpleButton,ScoreLabel,Pass_confirm
 from functions import *
 from setup import running,incoming_queue,outgoing_queue
 import random
 
 font=pygame.font.SysFont("TimesNewRoman", 20)
 font_mid=pygame.font.SysFont("TimesNewRoman", 30)
+font_mid_bold=pygame.font.SysFont("TimesNewRoman", 30,bold=True)
+
 small=pygame.font.SysFont("TimesNewRoman", 18)
+font_big=pygame.font.SysFont("TimesNewRoman", 40)
 font_verybig=pygame.font.SysFont("TimesNewRoman", 50)
 font_extremely_humongous=pygame.font.SysFont("TimesNewRoman", 70)
+font_large = pygame.font.SysFont("Arial", 40, bold=True)
+arial_mid=pygame.font.SysFont("Arial", 30, bold=True)
+arial=pygame.font.SysFont("Arial", 33)
 class ChooseScreen:
     def __init__(self,width, height,host_page,join_page):
         self.login=True
@@ -214,8 +222,39 @@ class game_screen:
         board_width=300
         board_height=300
         stone_r=0.33
-        self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2,board_width,board_height,self.tiles,self.tiles,stone_r,player=self.color_game)
-    def load_game(self,color,white_bias,black_bias,rule,tiles):
+        dy=30
+        self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2+dy,board_width,board_height,self.tiles,self.tiles,stone_r,player=self.color_game)
+        width=100
+        height=50
+        diff=30
+        y=self.h-80
+        # color=(100,149,237)
+
+        color=(100,109,240)
+        self.show_territory=SimpleButton(self.w//2+diff,y,width,height,color,"images/eye.png",5,call_back=lambda: self.switch_show_territory())
+        self.pass_button=SimpleButton(self.w//2-diff-width,y,width,height,color,"images/pass.png",5,call_back=lambda: self.confirm_turn_pass())
+
+        y=115
+        dur=200
+        self.stone_y=y
+
+        self.b_x=100
+        self.w_x=290
+
+        self.white_prisoners_label=ScoreLabel(self.w_x,y,font_large,(255,255,255),0,bump_duration_ms=dur,)
+        self.black_prisoners_label=ScoreLabel(self.b_x,y,font_large,(0,0,0),0,bump_duration_ms=dur,)
+        a=50
+        self.black_stone=pygame.transform.smoothscale(pygame.image.load("images/black.png"),(a,a)).convert_alpha()
+        self.white_stone=pygame.transform.smoothscale(pygame.image.load("images/white.png"),(a,a)).convert_alpha()
+
+        paddingx=50
+        paddingy=190
+        self.pass_turn_window=Pass_confirm(self.w-paddingx*2,self.h-paddingy*2,paddingx,paddingy,lambda: self.pass_turn(),lambda:self.back_to_game())
+        self.pass_turn_confirm=False
+
+        self.dx=20+a
+
+    def load_game(self,color,white_bias,black_bias,rule,tiles,player1,player2,hosting):
         self.tiles=tiles
         self.color_game=color
         self.white_bias=white_bias
@@ -226,23 +265,93 @@ class game_screen:
         self.load()
         print(f"Game loaded with color: {color}, white bias: {white_bias}, black bias: {black_bias}, rule: {rule}, tiles: {tiles}")
         self.loaded=True
+        label_y=20
+        self.inactive_player_color=(100,100,100)
+        self.active_player_color=(0, 200, 0)
+        self.player1_label=Label(self.w//4,label_y,player1,color_text=(0,0,0),font=arial,fade_in=True,pos_type="center")
+        self.player2_label=Label(self.w//4*3,label_y,player2,color_text=(0,0,0),font=arial,fade_in=True,pos_type="center")
+        self.hosting=hosting
+
+        self.vs_label=Label(self.w//4*2,label_y,"vs",color_text=(0,0,0),font=arial_mid,pos_type="center")
+
+
+        dx=30
+        intervals=5
+        y=80
+        self.score_count_label=ScoreLabel(self.w//2+dx,y+2,font_mid,(0,0,0),0,anchor="center",count_interval_ms=intervals,)
+        self.score_label=Label(self.w//2-dx,y,"Score:",color_text=(0,0,0),font=font_mid_bold ,pos_type="center")
+
+        self.set_active_colors()
     def close(self):
         self.surface=None
         self.board=None
         self.active=False
         self.loaded=False
+        self.pass_button=None
+        self.show_territory=None
+        self.white_prisoners_label=None
+        self.black_stone=None
+        self.white_stone=None
+        self.black_prisoners_label=None
+        self.player1_label =None
+        self.player2_label =None
+        self.vs_label=None
+        self.score_label=None
+        self.score_count_label=None
     def move(self):
         self.turn="White" if self.turn=="Black" else "Black"
         self.my_turn=self.color_game==self.turn
+        self.set_active_colors()
+
+    def switch_show_territory(self):
+        self.board.show_ter^=1
+    def pass_turn(self):
+        incoming_queue.put({"type":"pass turn"})
+        self.move()
+        self.back_to_game()
+    def confirm_turn_pass(self):
+        if self.my_turn:
+            self.pass_turn_confirm=True
+    def back_to_game(self):
+        self.pass_turn_confirm=False
     def set_move(self,pos):
         self.move()
         self.board.set_move(pos)
+    def set_pass(self):
+        self.move()
 
+    def set_active_colors(self):
+        if self.hosting:
+            if self.my_turn:
+                self.player1_label.set_color(self.active_player_color)
+                self.player2_label.set_color(self.inactive_player_color)
+            else:
+                self.player2_label.set_color(self.active_player_color)
+                self.player1_label.set_color(self.inactive_player_color)
+        else:
+            if self.my_turn:
+                self.player2_label.set_color(self.active_player_color)
+                self.player1_label.set_color(self.inactive_player_color)
+            else:
+                self.player1_label.set_color(self.active_player_color)
+                self.player2_label.set_color(self.inactive_player_color)
 
     def update(self):
         if not self.active or not self.loaded:
             return
+
+        if self.pass_turn_confirm:
+            return
+
         self.board.turn=self.my_turn
+        self.white_prisoners_label.update()
+        self.black_prisoners_label.update()
+
+
+        self.score_count_label.set_score(self.board.get_score(self.white_bias,self.black_bias))
+        self.score_count_label.update()
+
+
         move=self.board.update()
         if move:
             self.move()
@@ -250,10 +359,40 @@ class game_screen:
     def handle_event(self,event):
         if not self.active:
             return
+        if self.pass_turn_confirm:
+            self.pass_turn_window.handle_event(event)
+            return
+        self.pass_button.handle_event(event)
+        self.show_territory.handle_event(event)
         pass
     def draw(self):
         self.surface.fill((200, 200, 200))
+        color=(186, 161, 124)
+        h=50
+        pygame.draw.rect(self.surface,color,(0,0,self.w,h))
+        b=5
+        color2=(117, 86, 39)
+        pygame.draw.rect(self.surface,color2,(-b,-b,self.w+b*2,h+b),width=b)
+
         self.board.draw(self.surface)
+        self.show_territory.draw(self.surface)
+        self.pass_button.draw(self.surface)
+
+        self.surface.blit(self.white_stone,(self.w_x-self.dx,self.stone_y))
+        self.surface.blit(self.black_stone,(self.b_x-self.dx,self.stone_y))
+
+        self.black_prisoners_label.draw(self.surface)
+        self.white_prisoners_label.draw(self.surface)
+        self.player1_label.draw(self.surface)
+        self.player2_label.draw(self.surface)
+        self.vs_label.draw(self.surface)
+
+        self.score_label.draw(self.surface)
+        self.score_count_label.draw(self.surface)
+
+        if self.pass_turn_confirm:
+            self.pass_turn_window.draw(self.surface)
+
         return self.surface
     def activate(self):
         self.active=True
@@ -450,9 +589,16 @@ class App:
         elif event["type"]=="poll_move_response":
             if event["move"]:
                 self.pages["game"].set_move(event["move"])
+            elif event["pass"]:
+                self.pages["game"]
             else:
                 print("Polling move...")
                 outgoing_queue.put({"type": "poll move", "token": self.token, "room_id": self.room_id, "color": self.pages["game"].color_game})
+        elif event["type"]=="pass turn":
+            outgoing_queue.put({"type":"pass turn", "token": self.token, "gameid": self.room_id})
+        elif event["type"]=="make pass response":
+            if not event["success"]:
+                print("pass failed")
 
 
     def handle_networking_in(self):

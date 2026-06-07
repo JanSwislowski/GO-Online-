@@ -1010,7 +1010,8 @@ class Label:
         # fade-in
         self._alpha      = 0 if fade_in else 255
         self._fade_in    = fade_in
-        self._fade_speed = 420   # alpha units per second
+        fade_time=1
+        self._fade_speed = int(255/fade_time)   # alpha units per second
 
         # cache (rebuilt on set_text / set_image)
         self._dirty   = True
@@ -1753,6 +1754,9 @@ class Board:
         score=ch_score_board(self.board)
         self.white_ter=score[1]
         self.black_ter=score[2]
+    def get_score(self,white_bias,black_bias):
+        return ch_score_board(self.board)[0]+black_bias-white_bias
+
     def update(self):
         mc=pygame.mouse.get_pressed()[0]
         mp=pygame.mouse.get_pos()
@@ -2105,3 +2109,156 @@ class Picker2:
         self.chosen=0
 
 
+class ScoreLabel:
+    """
+    A pygame label that displays a score with animation support.
+
+    Features:
+    - Renders like a normal text label
+    - increase_by_one(): bumps score by 1 with a pop/bounce animation
+    - set_score(x): animates score counting up or down to x in intervals
+    """
+
+    # Animation states
+    _IDLE = "idle"
+    _BUMP = "bump"          # quick pop on +1
+    _COUNTING = "counting"  # gradual count toward target
+
+    def __init__(
+        self,
+        x: int,
+        y: int,
+        font: pygame.font.Font,
+        color: tuple = (255, 255, 255),
+        initial_score: int = 0,
+        count_interval_ms: int = 50,   # ms between each +1/-1 step when counting
+        bump_duration_ms: int = 300,   # ms for the +1 bump animation
+        anchor: str = "topleft",       # topleft | center | midleft | midright …
+    ):
+        self.x = x
+        self.y = y
+        self.font = font
+        self.color = color
+        self.score = initial_score
+        self._target_score = initial_score
+        self.anchor = anchor
+
+        # Counting animation
+        self._count_interval = count_interval_ms
+        self._count_timer = 0
+
+        # Bump animation (scale + translate)
+        self._bump_duration = bump_duration_ms
+        self._bump_timer = 0
+        self._bump_scale = 1.0
+        self._bump_offset_y = 0.0
+
+        self._state = self._IDLE
+        self._last_ticks = pygame.time.get_ticks()
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def increase_by_one(self):
+        """Increment score by 1 and play the pop animation."""
+        self.score += 1
+        self._target_score = self.score
+        self._start_bump()
+
+    def set_score(self, target: int):
+        """Animate the score counting up or down to *target*."""
+        self._target_score = target
+        if self._target_score != self.score:
+            self._state = self._COUNTING
+            self._count_timer = 0
+
+    # ------------------------------------------------------------------
+    # Update / Draw
+    # ------------------------------------------------------------------
+
+    def update(self):
+        """Call every frame — dt is measured internally."""
+        now = pygame.time.get_ticks()
+        dt_ms = now - self._last_ticks
+        self._last_ticks = now
+
+        if self._state == self._BUMP:
+            self._update_bump(dt_ms)
+        elif self._state == self._COUNTING:
+            self._update_counting(dt_ms)
+
+    def draw(self, surface: pygame.Surface):
+        """Render the label onto *surface*."""
+        text_surf = self.font.render(str(self.score), True, self.color)
+
+        # Apply scale from bump animation
+        if self._bump_scale != 1.0:
+            w = max(1, int(text_surf.get_width() * self._bump_scale))
+            h = max(1, int(text_surf.get_height() * self._bump_scale))
+            text_surf = pygame.transform.smoothscale(text_surf, (w, h))
+
+        # Position using chosen anchor
+        rect = text_surf.get_rect()
+        setattr(rect, self.anchor, (self.x, int(self.y + self._bump_offset_y)))
+
+        surface.blit(text_surf, rect)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def change_color(self,color):
+        self.color=color
+    def _start_bump(self):
+        self._state = self._BUMP
+        self._bump_timer = 0
+
+    def _update_bump(self, dt_ms: float):
+        self._bump_timer += dt_ms
+        t = min(self._bump_timer / self._bump_duration, 1.0)
+
+        self._bump_scale = 1.0 + 0.35 * math.sin(math.pi * t) * (1.0 - t)
+        self._bump_offset_y = -8 * math.sin(math.pi * t) * (1.0 - t)
+
+        if t >= 1.0:
+            self._bump_scale = 1.0
+            self._bump_offset_y = 0.0
+            self._state = self._IDLE
+
+    def _update_counting(self, dt_ms: float):
+        self._count_timer += dt_ms
+        if self._count_timer >= self._count_interval:
+            self._count_timer -= self._count_interval
+
+            if self.score < self._target_score:
+                self.score += 1
+            elif self.score > self._target_score:
+                self.score -= 1
+
+            if self.score == self._target_score:
+                self._state = self._IDLE
+
+class Pass_confirm:
+    def __init__(self,width,height,x,y,pass_turn_func, back_to_game):
+        self.rect=pygame.Rect(x,y,width,height)
+        button_w=85
+        button_h=50
+        paddingx=20
+        paddingY=20
+        self.confirm_button=SimpleButton(x+paddingx,y+height-button_h-paddingY,button_w,button_h,(0,200,0),"images/confirm.png",5,call_back=pass_turn_func)
+        self.cancel_button=SimpleButton(x+width-button_w-paddingx,y+height-button_h-paddingY,button_w,button_h,(200,0,0),"images/deny.png",5,call_back=back_to_game)
+        y2=40
+        padding=10
+        self.label=Label(width//2+x,y+y2,"Na pewno chcesz spasować?",max_width=width-padding*2,font=fontmid,color_text=(200,200,200),pos_type="center",)
+        self.color=(100,100,100)
+        self.second_color=(0,0,0)
+    def handle_event(self,event):
+        self.confirm_button.handle_event(event)
+        self.cancel_button.handle_event(event)
+    def draw(self,surface):
+        r=10
+        pygame.draw.rect(surface,self.color,self.rect,border_radius=r)
+        pygame.draw.rect(surface,self.second_color,self.rect,border_radius=r,width=5)
+        self.cancel_button.draw(surface)
+        self.confirm_button.draw(surface)
+        self.label.draw(surface)

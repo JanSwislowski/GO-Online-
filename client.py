@@ -54,3 +54,9 @@ def poll_move(token,room_id,color):
     print(response.json())
     response=response.json()
     return response.get("move")
+def pass_move(token,room_id,):
+    data={"token": token, "gameid": room_id}
+    response = requests.post(f"{SERVER}/pass_turn", json=data)
+    print(response.json())
+    response=response.json()
+    return response["status"]=="ok"
