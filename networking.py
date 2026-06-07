@@ -45,7 +45,11 @@ def network_loop():
 
             elif action["type"]=="poll move":
                 move=poll_move(action["token"], action["room_id"], action["color"])
-                incoming_queue.put({"type": "poll_move_response", "move": move[0],"pass":move[1]})
+                if move==(-1,-1):
+                    print("Game finished")
+                    incoming_queue.put({"type": "game_finished"})
+                else:
+                    incoming_queue.put({"type": "poll_move_response", "move": move[0],"pass":move[1]})
 
             elif action["type"]=="pass turn":
                 success=pass_move(action["token"], action["gameid"])

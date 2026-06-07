@@ -6,6 +6,8 @@ app = Flask(__name__)
 tokens={}
 rooms={}
 games={}
+finished_games=set([])
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -110,6 +112,7 @@ def start_game():
     games[room_id]["turn"]="Black"
     games[room_id]["move"]=None
     games[room_id]["pass"]=False
+    games[room_id]["passed"]=False
 
     rooms.pop(room_id)
 
@@ -128,6 +131,8 @@ def move():
         return jsonify({"status": "error", "message": "Invalid game ID"})
     games[game_id]["move"]=data.get("move")
     games[game_id]["turn"]="Black" if games[game_id]["turn"]=="White" else "White"
+    games[game_id]["passed"]=False
+
     return jsonify({"status": "ok" })
 
 @app.route("/poll_move", methods=["POST"])
@@ -140,9 +145,12 @@ def poll_move():
 
     game_id = data.get("gameid")
     if game_id not in games:
+        if game_id in finished_games:
+            return jsonify({"status": "game finished"})
+
         return jsonify({"status": "error", "message": "Invalid game ID"})
     if games[game_id]["turn"]!=data.get("color"):
-        return jsonify({"status": "ok", "move": None})
+        return jsonify({"status": "ok", "move": None,"pass":False})
 
     move=games[game_id]["move"]
     games[game_id]["move"]=None
@@ -164,8 +172,15 @@ def pass_turn():
     game_id = data.get("gameid")
     if game_id not in games:
         return jsonify({"status": "error", "message": "Invalid game ID"})
-
+    if games[game_id]["passed"]!=False:
+        games.pop(game_id)
+        finished_games.add(game_id)
+        return jsonify({"status": "ok" })
     games[game_id]["pass"]=True
+    games[game_id]["turn"]="Black" if games[game_id]["turn"]=="White" else "White"
+
+    games[game_id]["passed"]=True
+
     return jsonify({"status": "ok" })
 
 

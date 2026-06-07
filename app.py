@@ -12,7 +12,7 @@ font_mid_bold=pygame.font.SysFont("TimesNewRoman", 30,bold=True)
 small=pygame.font.SysFont("TimesNewRoman", 18)
 font_big=pygame.font.SysFont("TimesNewRoman", 40)
 font_verybig=pygame.font.SysFont("TimesNewRoman", 50)
-font_extremely_humongous=pygame.font.SysFont("TimesNewRoman", 70)
+font_extremely_humongous=pygame.font.SysFont("TimesNewRoman", 65)
 font_large = pygame.font.SysFont("Arial", 40, bold=True)
 arial_mid=pygame.font.SysFont("Arial", 30, bold=True)
 arial=pygame.font.SysFont("Arial", 33)
@@ -298,6 +298,8 @@ class game_screen:
         self.vs_label=None
         self.score_label=None
         self.score_count_label=None
+    def get_score(self):
+        return self.score_count_label.score
     def move(self):
         self.turn="White" if self.turn=="Black" else "Black"
         self.my_turn=self.color_game==self.turn
@@ -305,6 +307,7 @@ class game_screen:
     def switch_show_territory(self):
         self.board.show_ter^=1
     def pass_turn(self):
+        print(1)
         incoming_queue.put({"type":"pass turn"})
         self.move()
         self.back_to_game()
@@ -468,6 +471,75 @@ class loading_screen:
     def handle_event(self,event):
         pass
 
+
+class end_game_screen:
+    def __init__(self,width,height,home_page):
+        self.color=(200, 200, 200)
+        self.width=width
+        self.height=height
+        self.alpha=150
+        self.active=False
+
+        padding_x=30
+        padding_y=50
+        self.rect=pygame.Rect(padding_x,padding_y,width-2*padding_x,height-2*padding_y)
+        self.home_func=home_page
+
+    def load(self,text,prev_surface,score):
+        self.surface=pygame.surface.Surface((self.width, self.height), pygame.SRCALPHA).convert_alpha()
+
+        dy=200
+        self.label=Label(self.width//2, self.height//2-dy, text, font=font_extremely_humongous,pos_type="center",color_text=(0,0,0))
+        self.point_label=Label(self.width//2, self.height//2-dy+100, "Punktacja:", font=font_big,pos_type="center",color_text=(0,0,0))
+        self.score_label=Label(self.width//2, self.height//2-dy+150, f"{score}", font=font_big,pos_type="center",color_text=(0,0,0))
+
+        button_w=200
+        h=50
+        color=(100,149,237)
+        self.home_button=SimpleButton(self.width//2-button_w//2,self.rect.bottom-h-20,button_w,h,color,"images/exit.png",5,self.home_func)
+
+
+        bg = prev_surface.copy()
+        dark_overlay = pygame.Surface(bg.get_size(), pygame.SRCALPHA)
+        dark_overlay.fill((0, 0, 0, self.alpha))
+        bg.blit(dark_overlay, (0, 0))
+        self.surface.blit(bg,(0,0))
+
+        self.surface=self.surface.convert_alpha()
+
+
+
+
+    def close(self):
+        self.label=None
+        self.surface=None
+        self.label=None
+        self.point=None
+        self.score=None
+        self.home_=None
+
+    def update(self):
+        pass
+    def draw(self):
+        color=(186, 161, 124)
+        color2=(117, 86, 39)
+        r=20
+        w=5
+        pygame.draw.rect(self.surface,color,self.rect,border_radius=r)
+        pygame.draw.rect(self.surface,color2,self.rect,border_radius=r,width=w)
+        self.label.draw(self.surface)
+        self.point_label.draw(self.surface)
+        self.score_label.draw(self.surface)
+        self.home_button.draw(self.surface)
+
+        return self.surface
+    def activate(self):
+        self.active=True
+    def handle_event(self,event):
+        if not self.active:
+            return
+        self.home_button.handle_event(event)
+
 class App:
     def __init__(self):
         pygame.init()
@@ -486,6 +558,7 @@ class App:
                 "game": game_screen(self.width, self.height),
                 "join": join_screen(self.width, self.height),
                 "load": loading_screen(self.width, self.height),
+                "end game":end_game_screen(self.width,self.height,lambda: self.switch_page("choose"))
         }
 
 
@@ -590,6 +663,7 @@ class App:
             if event["move"]:
                 self.pages["game"].set_move(event["move"])
             elif event["pass"]:
+                print("enemy pass")
                 self.pages["game"].set_pass()
             else:
                 print("Polling move...")
@@ -599,9 +673,23 @@ class App:
         elif event["type"]=="make pass response":
             if not event["success"]:
                 print("pass failed")
+        elif event["type"]=="game_finished":
+            self.end_game()
+            print("finishing game")
 
-
+    def end_game(self):
+        score=self.pages["game"].get_score()
+        if score>0 and self.pages["game"].color_game=="black":
+            txt="Wygrana!"
+        elif score<0 and  self.pages["game"].color_game=="White":
+            txt="Wygrana!"
+        else:
+            txt="Porażka"
+        self.pages["end game"].load(txt,self.pages[self.current_page].draw(),score)
+        self.switch_page("end game")
     def handle_networking_in(self):
+        if self.start_fade is not None:
+            return
         while not incoming_queue.empty():
             event = incoming_queue.get()
             self.server_event_handler(event)
@@ -615,6 +703,8 @@ class App:
             else:
                 txt="Loading"
             self.pages["load"].load(txt,self.pages[self.current_page].draw(),)
+        elif page_name=="end game":
+            pass
         else: self.pages[page_name].load()
 
         self.handle_networking_out(page_name)
