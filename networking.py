@@ -21,7 +21,7 @@ def network_loop():
 
             elif action["type"]=="poll host room":
                 player2_joined=poll_host_room(action["token"], action["room_id"])
-                incoming_queue.put({"type": "poll_host_response", "player2_joined": player2_joined})
+                incoming_queue.put({"type": "poll_host_response", "player2_joined": player2_joined[0],"player1":player2_joined[1],"player2":player2_joined[2]})
 
             elif action["type"]=="get rooms":
                 rooms=get_rooms(action["token"])

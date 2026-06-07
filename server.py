@@ -71,7 +71,7 @@ def poll_room():
         print(f"Invalid room ID: {room_id}", rooms)
         return jsonify({"status": "error", "message": "Invalid room ID"})
 
-    return jsonify({"status": "ok", "player2": rooms[room_id]["player2"]})
+    return jsonify({"status": "ok", "player2": rooms[room_id]["player2"],"player1": rooms[room_id]["player1"]})
 
 @app.route("/poll_start_game", methods=["POST"])
 def poll_start_game():
@@ -84,7 +84,7 @@ def poll_start_game():
     if room_id not in games:
         return jsonify({"status": "game not ready", })
 
-    return jsonify({"status": "ok", "player1": games[room_id]["player1"],"p1 color":games[room_id]["player1 color"],
+    return jsonify({"status": "ok", "player1": games[room_id]["player1"],"player2": games[room_id]["player2"],"p1 color":games[room_id]["player1 color"],
                    "p2 color":games[room_id]["player2 color"], "settings": games[room_id]["settings"]})
 
 

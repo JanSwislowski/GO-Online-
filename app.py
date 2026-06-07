@@ -302,7 +302,6 @@ class game_screen:
         self.turn="White" if self.turn=="Black" else "Black"
         self.my_turn=self.color_game==self.turn
         self.set_active_colors()
-#test
     def switch_show_territory(self):
         self.board.show_ter^=1
     def pass_turn(self):
@@ -524,7 +523,7 @@ class App:
             outgoing_queue.put({"type": "get rooms", "token": self.token})
         if self.current_page=="start":
             outgoing_queue.put({"type": "login","username": self.pages["start"].name_text_box.get_text()})
-    def host_game(self):
+    def host_game(self,player1,player2):
         host_color = self.pages["host"].color_picker.get_selected()
         tiles=self.pages["host"].tiles_slider.value
         white_bias=self.pages["host"].white_bias_slider.value
@@ -541,7 +540,7 @@ class App:
                                 "rule": rule,
                             }
         })
-        self.pages["game"].load_game(tiles=tiles,white_bias=white_bias,black_bias=black_bias,rule=rule,color=host_color)
+        self.pages["game"].load_game(tiles=tiles,white_bias=white_bias,black_bias=black_bias,rule=rule,color=host_color,player1=player1,player2=player2,hosting=True)
     def join_room(self,room_id):
         outgoing_queue.put({"type": "join room", "token": self.token, "room_id": room_id})
     def server_event_handler(self,event):
@@ -563,8 +562,8 @@ class App:
 
         elif event["type"]=="poll_host_response":
 
-            if event["player2_joined"]:
-                self.host_game()
+            if event["player2_joined"][0]:
+                self.host_game(event["player2_joined"][1],event["player2_joined"][2])
             else:
                 outgoing_queue.put({"type": "poll host room", "token": self.token, "room_id": self.room_id})
 
@@ -579,7 +578,8 @@ class App:
                                         white_bias=event["response"]["settings"]["white_bias"],
                                         black_bias=event["response"]["settings"]["black_bias"],
                                         rule=event["response"]["settings"]["rule"],
-                                             color=event["response"]["p2 color"])
+                                        color=event["response"]["p2 color"],player1=event["response"]["player1"],
+                                        player2=event["response"]["player2"],hosting=False)
                 self.switch_page("game")
             else:
                 outgoing_queue.put({"type": "poll start game", "token": self.token, "room_id": self.room_id})
@@ -590,7 +590,7 @@ class App:
             if event["move"]:
                 self.pages["game"].set_move(event["move"])
             elif event["pass"]:
-                self.pages["game"]
+                self.pages["game"].set_pass()
             else:
                 print("Polling move...")
                 outgoing_queue.put({"type": "poll move", "token": self.token, "room_id": self.room_id, "color": self.pages["game"].color_game})
