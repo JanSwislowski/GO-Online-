@@ -2234,7 +2234,8 @@ class ScoreLabel:
                 self.score += 1
             elif self.score > self._target_score:
                 self.score -= 1
-
+            if abs(self.score-self._target_score)<1:
+                self.score=self._target_score
             if self.score == self._target_score:
                 self._state = self._IDLE
 

@@ -563,7 +563,7 @@ class App:
         elif event["type"]=="poll_host_response":
 
             if event["player2_joined"]:
-                self.host_game(event["player1"],event["player2"][2])
+                self.host_game(event["player1"],event["player2"])
             else:
                 outgoing_queue.put({"type": "poll host room", "token": self.token, "room_id": self.room_id})
 
