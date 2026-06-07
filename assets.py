@@ -1768,18 +1768,6 @@ class Board:
             if self.check_legal(pos) and self.turn:
                 self.place(pos,self.player)
                 return pos
-        keys=pygame.key.get_pressed()
-        if keys[pygame.K_SPACE]:
-            print(ch_score_board(self.board))
-        if keys[pygame.K_w]:
-            self.player=1
-        elif keys[pygame.K_b]:
-            self.player=0
-        if keys[pygame.K_s]:
-            self.show_ter=1
-        if keys[pygame.K_h]:
-            self.show_ter=0
-        return None
     def set_move(self,pos):
         self.place(pos,1^self.player)
 
@@ -2263,3 +2251,69 @@ class Pass_confirm:
         self.cancel_button.draw(surface)
         self.confirm_button.draw(surface)
         self.label.draw(surface)
+import random
+class Go_particles:
+    def __init__(self,White,Black,white_target,black_target,min_vel,max_vel,white_func,black_func):
+        self.particles=[]
+        self.w=White
+        self.b=Black
+        self.wt=white_target
+        self.bt=black_target
+        self.mv=min_vel
+        self.mxv=max_vel
+
+        self.white_func=white_func
+        self.black_func=black_func
+    def add_particle(self,x,y,color):
+        t=self.wt if color=="White" else self.bt
+        self.particles.append(Particle1(x,y,random.randint(self.mv,self.mxv),t[0],t[1],color))
+    def update(self):
+        for i in range(len(self.particles)-1,-1,-1):
+            j=self.particles[i]
+            j.update()
+            if not j.alive:
+                if j.info=="White":
+                    self.white_func()
+                else:
+                    self.black_func()
+                self.particles.pop(i)
+    def draw(self,surface):
+        for j in self.particles:
+            img=self.w if j.info=="White" else self.b
+            rect=img.get_rect()
+            rect.center=j.get_pos()
+            surface.blit(img,rect)
+
+class Particle1:
+    def __init__(self,x,y,init_vel,tx,ty,info=None):
+        self.pos=pygame.Vector2(x,y)
+
+        self.vel=pygame.Vector2(init_vel,0)
+        self.vel=self.vel.rotate(random.randint(0,360-1))
+        print(self.vel)
+        self.tx=tx
+        self.ty=ty
+        self.info =info
+        self.alive=True
+    def update_vel(self):
+        a=0.5
+        base=1.5
+        l=pygame.Vector2(self.tx-self.pos.x,self.ty-self.pos.y).length()
+        if l==0:
+            self.alive=False
+            return
+
+        factor=math.log(base,l)+a
+        acc=pygame.Vector2(self.tx-self.pos.x,self.ty-self.pos.y)
+        acc.scale_to_length(factor)
+        self.vel+=acc
+        self.vel.scale_to_length(min(8,self.vel.length()))
+    def get_pos(self):
+        return self.pos.x,self.pos.y
+    def update(self):
+        if self.alive==False:
+            return
+        self.pos+=self.vel
+        self.update_vel()
+        if pygame.Vector2(self.tx-self.pos.x,self.ty-self.pos.y).length()<=self.vel.length():
+            self.alive=False

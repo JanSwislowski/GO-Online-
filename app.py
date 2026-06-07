@@ -275,7 +275,7 @@ class game_screen:
         self.vs_label=Label(self.w//4*2,label_y,"vs",color_text=(0,0,0),font=arial_mid,pos_type="center")
 
 
-        dx=30
+        dx=33
         intervals=5
         y=80
         self.score_count_label=ScoreLabel(self.w//2+dx,y+2,font_mid,(0,0,0),0,anchor="center",count_interval_ms=intervals,)
@@ -549,7 +549,8 @@ class App:
         H=(x*ratio)
         self.width = W
         self.height = H
-        self.screen=pygame.display.set_mode((self.width, self.height))
+        self.screen=pygame.display.set_mode((self.width, self.height),
+    pygame.SCALED | pygame.FULLSCREEN)
 
         self.pages={
                 "start": StartScreen(self.width, self.height,lambda: self.switch_page("load")),
