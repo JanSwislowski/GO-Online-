@@ -302,7 +302,7 @@ class game_screen:
         self.turn="White" if self.turn=="Black" else "Black"
         self.my_turn=self.color_game==self.turn
         self.set_active_colors()
-
+#test
     def switch_show_territory(self):
         self.board.show_ter^=1
     def pass_turn(self):
