@@ -704,7 +704,7 @@ class App:
                 txt="Loading"
             self.pages["load"].load(txt,self.pages[self.current_page].draw(),)
         elif page_name=="end game":
-            pass
+            self.first_poll_game=True
         else: self.pages[page_name].load()
 
         self.handle_networking_out(page_name)
