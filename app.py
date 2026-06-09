@@ -382,7 +382,6 @@ class game_screen:
         color2=(117, 86, 39)
         pygame.draw.rect(self.surface,color2,(-b,-b,self.w+b*2,h+b),width=b)
 
-        self.board.draw(self.surface)
         self.show_territory.draw(self.surface)
         self.pass_button.draw(self.surface)
 
@@ -397,6 +396,8 @@ class game_screen:
 
         self.score_label.draw(self.surface)
         self.score_count_label.draw(self.surface)
+
+        self.board.draw(self.surface)
 
         if self.pass_turn_confirm:
             self.pass_turn_window.draw(self.surface)
@@ -632,6 +633,7 @@ class App:
         rule=self.pages["host"].rule_picker.get_selected()
         if host_color == "Random":
             host_color = random.choice(["Black", "White"])
+            print(host_color)
         outgoing_queue.put({"type": "start game", "token": self.token, "room_id": self.room_id,
                             "host_color": host_color,
                             "settings": {

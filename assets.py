@@ -1682,8 +1682,8 @@ class Board:
 
         self.turn=False
 
-        y=120
-        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(300,200),(100,y),10,increase_white,increase_black)
+        y=140
+        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(300,y),(110,y),8,increase_white,increase_black)
 
 
     def draw(self,surface):
@@ -1715,8 +1715,8 @@ class Board:
                 surface.blit(alpha_surface(stone,alpha),rect)
         # draw ter
         if self.show_ter:
-            white=(200,200,200)
-            black=(20,20,20)
+            white=(255,255,255)
+            black=(0,0,0)
             for i in range(self.tiles_x):
                 for j in range(self.tiles_y):
                     if (i,j) in self.white_ter or (i,j) in self.black_ter:
