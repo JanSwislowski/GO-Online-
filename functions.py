@@ -210,3 +210,12 @@ def ch_score_board(board):
             elif board[i][j]==1:
                 score-=1
     return score,white_ter,black_ter
+def jp_score_board(board,white_taken,black_taken):
+    score=ch_score_board(board)
+    for i in board:
+        for j in i:
+            if j==0:
+                score-=1
+            elif j==1:
+                score+=1
+    return score+white_taken-black_taken

@@ -1,452 +1,207 @@
 """
-pygame_kivy_widget.py
-=====================
-A Kivy widget that hosts a Pygame surface and bridges input/output between
-the two frameworks.  Drop it into any Kivy layout and run your Pygame game
-loop inside `on_pygame_frame`.
+my_pygame_app.py
+================
+Complete example of a Pygame game running inside Kivy via PygameWidget.
 
-Features
---------
-* Renders a pygame.Surface onto a Kivy Image widget every frame via a
-  shared Texture (zero extra copies when possible).
-* show_keyboard() / hide_keyboard() – toggle the soft keyboard on Android
-  (and desktop IME where supported).
-* Key events forwarded as pygame keyboard events (KEYDOWN / KEYUP).
-* Touch / mouse events forwarded as pygame MOUSEBUTTONDOWN/UP and
-  MOUSEMOTION, with coordinate mapping from Kivy → Pygame surface space.
-
-Quick-start
------------
-    from pygame_kivy_widget import PygameWidget
-
-    class MyApp(App):
-        def build(self):
-            widget = PygameWidget(size=(480, 320))
-            widget.bind(on_pygame_frame=self.game_loop)
-            return widget
-
-    def game_loop(self, widget, surface, dt):
-        surface.fill((30, 30, 30))
-        # … your pygame drawing here …
-
-    MyApp().run()
-
-Requirements
-------------
-    pip install kivy pygame
-
-On Android use Buildozer and add both `kivy` and `pygame` to requirements.
+Demonstrates:
+  - Game loop with delta time
+  - Keyboard input (WASD / arrow keys)
+  - Touch / mouse input
+  - Soft keyboard toggle
+  - Clean shutdown
 """
 
-from __future__ import annotations
-
 import pygame
-import ctypes
-
 from kivy.app import App
-from kivy.clock import Clock
 from kivy.core.window import Window
-from kivy.graphics.texture import Texture
-from kivy.uix.image import Image
-from kivy.uix.widget import Widget
-from kivy.uix.boxlayout import BoxLayout
-from kivy.event import EventDispatcher
-from kivy.properties import ObjectProperty, NumericProperty, BooleanProperty
+
+from widget import PygameWidget
 
 # ---------------------------------------------------------------------------
-# Kivy → Pygame key-code table (extend as needed)
+# Constants
 # ---------------------------------------------------------------------------
-_KIVY_TO_PYGAME_KEY: dict[str, int] = {
-    "a": pygame.K_a, "b": pygame.K_b, "c": pygame.K_c, "d": pygame.K_d,
-    "e": pygame.K_e, "f": pygame.K_f, "g": pygame.K_g, "h": pygame.K_h,
-    "i": pygame.K_i, "j": pygame.K_j, "k": pygame.K_k, "l": pygame.K_l,
-    "m": pygame.K_m, "n": pygame.K_n, "o": pygame.K_o, "p": pygame.K_p,
-    "q": pygame.K_q, "r": pygame.K_r, "s": pygame.K_s, "t": pygame.K_t,
-    "u": pygame.K_u, "v": pygame.K_v, "w": pygame.K_w, "x": pygame.K_x,
-    "y": pygame.K_y, "z": pygame.K_z,
-    "0": pygame.K_0, "1": pygame.K_1, "2": pygame.K_2, "3": pygame.K_3,
-    "4": pygame.K_4, "5": pygame.K_5, "6": pygame.K_6, "7": pygame.K_7,
-    "8": pygame.K_8, "9": pygame.K_9,
-    "spacebar": pygame.K_SPACE, " ": pygame.K_SPACE,
-    "enter": pygame.K_RETURN, "escape": pygame.K_ESCAPE,
-    "backspace": pygame.K_BACKSPACE, "tab": pygame.K_TAB,
-    "up": pygame.K_UP, "down": pygame.K_DOWN,
+SURFACE_W, SURFACE_H = 480, 320
+FPS = 60
+
+PLAYER_SPEED = 200        # pixels per second
+PLAYER_COLOR = (80, 200, 120)
+PLAYER_RADIUS = 16
+BG_COLOR = (18, 18, 28)
+FONT_COLOR = (200, 200, 200)
+TOUCH_COLOR = (255, 120, 60)
+
+
+# ---------------------------------------------------------------------------
+# Game state
+# ---------------------------------------------------------------------------
+class GameState:
+    def __init__(self):
+        self.x = SURFACE_W // 2
+        self.y = SURFACE_H // 2
+        self.keys_held: set[int] = set()      # pygame key constants
+        self.touch_points: list[tuple[int, int]] = []
+        self.last_key = ""
+        self.font = None
+        self.small_font = None
+
+    def init_fonts(self):
+        self.font = pygame.font.SysFont("monospace", 18)
+        self.small_font = pygame.font.SysFont("monospace", 13)
+
+
+# ---------------------------------------------------------------------------
+# Kivy App
+# ---------------------------------------------------------------------------
+class MyPygameApp(App):
+
+    def build(self):
+        self.game = GameState()
+
+        self.widget = PygameWidget(
+            surface_size=(SURFACE_W, SURFACE_H),
+            fps=FPS,
+            size_hint=(1, 1),
+        )
+
+        # Bind all events
+        self.widget.bind(on_pygame_frame=self.game_loop)
+        self.widget.bind(on_pygame_keydown=self.on_key_down)
+        self.widget.bind(on_pygame_keyup=self.on_key_up)
+        self.widget.bind(on_pygame_touch=self.on_touch)
+
+        # Intercept Android back button / Escape
+        Window.bind(on_keyboard=self.on_back_button)
+
+        return self.widget
+
+    def on_start(self):
+        self.game.init_fonts()
+
+    def on_pause(self):
+        # Return True to allow pause (Android); False would close the app
+        return True
+
+    def on_resume(self):
+        pass
+
+    def on_stop(self):
+        self.widget.stop()
+        pygame.quit()
+
+    # ------------------------------------------------------------------
+    # Back button (Android back / desktop Escape)
+    # ------------------------------------------------------------------
+    def on_back_button(self, window, key, *args):
+        if key == 27:   # Escape / Android back
+            self.widget.stop()
+            pygame.quit()
+            self.stop()
+            return True
+        return False
+
+    # ------------------------------------------------------------------
+    # Game loop — draw everything here
+    # ------------------------------------------------------------------
+    def game_loop(self, widget, surface: pygame.Surface, dt: float):
+        game = self.game
+
+        # --- Update player position from held keys ---
+        dist = PLAYER_SPEED * dt
+        if pygame.K_LEFT in game.keys_held or pygame.K_a in game.keys_held:
+            game.x -= dist
+        if pygame.K_RIGHT in game.keys_held or pygame.K_d in game.keys_held:
+            game.x += dist
+        if pygame.K_UP in game.keys_held or pygame.K_w in game.keys_held:
+            game.y -= dist
+        if pygame.K_DOWN in game.keys_held or pygame.K_s in game.keys_held:
+            game.y += dist
+
+        # Clamp to surface bounds
+        game.x = max(PLAYER_RADIUS, min(SURFACE_W - PLAYER_RADIUS, game.x))
+        game.y = max(PLAYER_RADIUS, min(SURFACE_H - PLAYER_RADIUS, game.y))
+
+        # --- Draw background ---
+        surface.fill(BG_COLOR)
+
+        # --- Draw touch points ---
+        for tx, ty in game.touch_points[-30:]:
+            pygame.draw.circle(surface, TOUCH_COLOR, (tx, ty), 6)
+
+        # --- Draw player ---
+        pygame.draw.circle(surface, PLAYER_COLOR, (int(game.x), int(game.y)), PLAYER_RADIUS)
+
+        # --- Mouse cursor indicator ---
+        mx, my = widget.get_mouse_pos()
+        pygame.draw.circle(surface, (255, 255, 100), (mx, my), 4)
+
+        # --- HUD text ---
+        if game.font:
+            lines = [
+                f"Player: ({int(game.x)}, {int(game.y)})",
+                f"Mouse:  ({mx}, {my})",
+                f"Key:    {game.last_key}",
+            ]
+            for i, line in enumerate(lines):
+                surf = game.font.render(line, True, FONT_COLOR)
+                surface.blit(surf, (8, 8 + i * 22))
+
+        if game.small_font:
+            hints = [
+                "WASD / arrows = move",
+                "Touch = drop dot",
+                "K = toggle keyboard",
+            ]
+            for i, hint in enumerate(hints):
+                surf = game.small_font.render(hint, True, (100, 100, 130))
+                surface.blit(surf, (8, SURFACE_H - 14 - (len(hints) - 1 - i) * 16))
+
+    # ------------------------------------------------------------------
+    # Key events
+    # ------------------------------------------------------------------
+    def on_key_down(self, widget, key, scancode, codepoint, modifiers):
+        self.game.last_key = key
+
+        # Track held keys using pygame constants
+        pg_key = _name_to_pg(key)
+        if pg_key:
+            self.game.keys_held.add(pg_key)
+
+        # Toggle soft keyboard with K
+        if key == "k":
+            widget.toggle_keyboard()
+
+    def on_key_up(self, widget, key, scancode, codepoint, modifiers):
+        pg_key = _name_to_pg(key)
+        if pg_key:
+            self.game.keys_held.discard(pg_key)
+
+    # ------------------------------------------------------------------
+    # Touch events
+    # ------------------------------------------------------------------
+    def on_touch(self, widget, x, y, action):
+        if action == "down":
+            self.game.touch_points.append((x, y))
+
+
+# ---------------------------------------------------------------------------
+# Helper — key name → pygame constant
+# ---------------------------------------------------------------------------
+_KEY_MAP = {
     "left": pygame.K_LEFT, "right": pygame.K_RIGHT,
-    "shift": pygame.K_LSHIFT, "ctrl": pygame.K_LCTRL,
-    "alt": pygame.K_LALT, "delete": pygame.K_DELETE,
-    "home": pygame.K_HOME, "end": pygame.K_END,
-    "pageup": pygame.K_PAGEUP, "pagedown": pygame.K_PAGEDOWN,
-    "f1": pygame.K_F1, "f2": pygame.K_F2, "f3": pygame.K_F3,
-    "f4": pygame.K_F4, "f5": pygame.K_F5, "f6": pygame.K_F6,
-    "f7": pygame.K_F7, "f8": pygame.K_F8, "f9": pygame.K_F9,
-    "f10": pygame.K_F10, "f11": pygame.K_F11, "f12": pygame.K_F12,
+    "up": pygame.K_UP,     "down": pygame.K_DOWN,
+    "a": pygame.K_a, "d": pygame.K_d,
+    "w": pygame.K_w, "s": pygame.K_s,
+    "space": pygame.K_SPACE, "spacebar": pygame.K_SPACE,
+    "return": pygame.K_RETURN, "enter": pygame.K_RETURN,
+    "escape": pygame.K_ESCAPE,
 }
 
-# Kivy mouse button index → pygame button number
-_KIVY_TO_PYGAME_BTN: dict[str, int] = {
-    "left": 1, "middle": 2, "right": 3,
-    "scrollup": 4, "scrolldown": 5,
-}
-
-
-class PygameWidget(BoxLayout):
-    """
-    A Kivy widget that hosts a Pygame surface.
-
-    Parameters
-    ----------
-    surface_size : tuple[int, int]
-        Pixel dimensions of the Pygame surface (default: matches widget size).
-    fps : int
-        Target frames per second for the internal Clock (default: 60).
-    keyboard_visible : bool
-        Whether the soft keyboard starts visible (default: False).
-
-    Events
-    ------
-    on_pygame_frame(widget, surface, dt)
-        Fired every frame.  Draw to *surface* here.
-    on_pygame_keydown(widget, key, scancode, codepoint, modifiers)
-        Fired when a key is pressed (mirrors Kivy's on_key_down signature).
-    on_pygame_keyup(widget, key, scancode, codepoint, modifiers)
-        Fired when a key is released.
-    on_pygame_touch(widget, touch_x, touch_y, action)
-        Fired on touch / mouse events.  *action* is one of
-        ``"down"``, ``"move"``, ``"up"``.
-    """
-
-    # ------------------------------------------------------------------
-    # Kivy properties
-    # ------------------------------------------------------------------
-    fps = NumericProperty(60)
-    keyboard_visible = BooleanProperty(False)
-
-    # ------------------------------------------------------------------
-    # Kivy event declarations
-    # ------------------------------------------------------------------
-    def __init__(self, surface_size: tuple[int, int] | None = None,
-                 fps: int = 60, keyboard_visible: bool = False, **kwargs):
-        self.register_event_type("on_pygame_frame")
-        self.register_event_type("on_pygame_keydown")
-        self.register_event_type("on_pygame_keyup")
-        self.register_event_type("on_pygame_touch")
-
-        super().__init__(orientation="vertical", **kwargs)
-
-        self.fps = fps
-        self.keyboard_visible = keyboard_visible
-
-        # --- Pygame init (display-less; we own the surface) ---
-        if not pygame.get_init():
-            pygame.init()
-        # Prevent pygame from opening its own OS window
-        import os
-        os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-        os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-
-        self._surface_size = surface_size  # resolved in on_size
-        self._surface: pygame.Surface | None = None
-        self._texture: Texture | None = None
-
-        # --- Kivy image widget that shows the texture ---
-        self._image = Image(allow_stretch=True, keep_ratio=False)
-        self.add_widget(self._image)
-
-        # --- Keyboard ---
-        self._kb = None  # Kivy keyboard handle
-        if keyboard_visible:
-            self.show_keyboard()
-
-        # --- Window-level key bindings (desktop) ---
-        Window.bind(on_key_down=self._on_window_key_down)
-        Window.bind(on_key_up=self._on_window_key_up)
-
-        # --- Touch bindings ---
-        self._image.bind(on_touch_down=self._on_touch_down)
-        self._image.bind(on_touch_move=self._on_touch_move)
-        self._image.bind(on_touch_up=self._on_touch_up)
-
-        # --- Frame clock ---
-        self._clock_event = Clock.schedule_interval(self._tick, 1.0 / self.fps)
-
-        # Resolve surface once size is known
-        self.bind(size=self._init_surface)
-
-    # ------------------------------------------------------------------
-    # Surface / texture management
-    # ------------------------------------------------------------------
-    def _init_surface(self, *_args):
-        w, h = self._surface_size or (int(self.width) or 320, int(self.height) or 240)
-        w, h = max(w, 1), max(h, 1)
-        self._surface = pygame.Surface((w, h))
-        self._texture = Texture.create(size=(w, h), colorfmt="rgb", bufferfmt="ubyte")
-        self._image.texture = self._texture
-
-    def _upload_surface(self):
-        """Blit the current pygame surface into the Kivy texture."""
-        if self._surface is None or self._texture is None:
-            return
-        # The third arg `True` flips vertically so Pygame top-left matches OpenGL bottom-left
-        raw = pygame.image.tostring(self._surface, "RGB", True)
-        self._texture.blit_buffer(raw, colorfmt="rgb", bufferfmt="ubyte")
-        self._image.canvas.ask_update()
-
-    # ------------------------------------------------------------------
-    # Clock tick
-    # ------------------------------------------------------------------
-    def _tick(self, dt: float):
-        if self._surface is None:
-            return
-        # Drain pygame's own event queue (keeps it healthy; we bridge separately)
-        pygame.event.pump()
-        # Fire the user's drawing callback
-        self.dispatch("on_pygame_frame", self._surface, dt)
-        self._upload_surface()
-
-    # ------------------------------------------------------------------
-    # Default no-op handlers (required by Kivy event system)
-    # ------------------------------------------------------------------
-    def on_pygame_frame(self, surface, dt):
-        pass
-
-    def on_pygame_keydown(self, key, scancode, codepoint, modifiers):
-        pass
-
-    def on_pygame_keyup(self, key, scancode, codepoint, modifiers):
-        pass
-
-    def on_pygame_touch(self, touch_x, touch_y, action):
-        pass
-
-    # ------------------------------------------------------------------
-    # Keyboard helpers
-    # ------------------------------------------------------------------
-    def show_keyboard(self):
-        """Request the soft / system keyboard."""
-        if self._kb is None:
-            self._kb = Window.request_keyboard(self._kb_closed, self)
-            self._kb.bind(on_key_down=self._on_kb_key_down)
-            self._kb.bind(on_key_up=self._on_kb_key_up)
-        self.keyboard_visible = True
-
-    def hide_keyboard(self):
-        """Release / dismiss the soft keyboard."""
-        if self._kb is not None:
-            self._kb.release()
-            self._kb = None
-        self.keyboard_visible = False
-
-    def toggle_keyboard(self):
-        """Toggle soft keyboard visibility."""
-        if self.keyboard_visible:
-            self.hide_keyboard()
-        else:
-            self.show_keyboard()
-
-    def _kb_closed(self):
-        self._kb = None
-        self.keyboard_visible = False
-
-    # ------------------------------------------------------------------
-    # Key event bridging (Kivy keyboard widget → pygame events)
-    # ------------------------------------------------------------------
-    def _on_kb_key_down(self, keyboard, keycode, text, modifiers):
-        self._bridge_key(keycode, modifiers, down=True)
-        self.dispatch("on_pygame_keydown", keycode[1], keycode[0], text, modifiers)
-
-    def _on_kb_key_up(self, keyboard, keycode):
-        self._bridge_key(keycode, [], down=False)
-        self.dispatch("on_pygame_keyup", keycode[1], keycode[0], "", [])
-
-    # Window-level fallback for desktop (works even without keyboard widget)
-    def _on_window_key_down(self, window, key, scancode, codepoint, modifiers):
-        keyname = pygame.key.name(key) if key < 256 else str(key)
-        self.dispatch("on_pygame_keydown", keyname, scancode, codepoint, modifiers)
-        self._inject_pygame_key(key, scancode, codepoint, modifiers, down=True)
-
-    def _on_window_key_up(self, window, key, scancode):
-        self.dispatch("on_pygame_keyup", pygame.key.name(key) if key < 256 else str(key),
-                      scancode, "", [])
-        self._inject_pygame_key(key, scancode, "", [], down=False)
-
-    def _bridge_key(self, keycode, modifiers, *, down: bool):
-        """Translate a Kivy keycode tuple → pygame KEYDOWN/KEYUP event."""
-        raw_key, key_name = keycode
-        pg_key = _KIVY_TO_PYGAME_KEY.get(key_name.lower(), pygame.K_UNKNOWN)
-        mods = _kivy_mods_to_pygame(modifiers)
-        etype = pygame.KEYDOWN if down else pygame.KEYUP
-        event = pygame.event.Event(etype, {
-            "key": pg_key,
-            "scancode": raw_key,
-            "unicode": key_name if len(key_name) == 1 else "",
-            "mod": mods,
-        })
-        pygame.event.post(event)
-
-    def _inject_pygame_key(self, kivy_key, scancode, codepoint, modifiers, *, down: bool):
-        pg_key = kivy_key if kivy_key < 256 else pygame.K_UNKNOWN
-        mods = _kivy_mods_to_pygame(modifiers)
-        etype = pygame.KEYDOWN if down else pygame.KEYUP
-        event = pygame.event.Event(etype, {
-            "key": pg_key,
-            "scancode": scancode or 0,
-            "unicode": codepoint or "",
-            "mod": mods,
-        })
-        pygame.event.post(event)
-
-    # ------------------------------------------------------------------
-    # Touch / mouse event bridging
-    # ------------------------------------------------------------------
-    def _map_touch(self, touch) -> tuple[int, int]:
-        """
-        Convert Kivy window coordinates → Pygame surface pixel coordinates.
-        Accounts for widget position and surface scale.
-        """
-        if self._surface is None:
-            return (int(touch.x), int(touch.y))
-
-        # Widget bounding box in window coords
-        wx, wy = self._image.to_window(*self._image.pos)
-        ww, wh = self._image.size
-
-        # Normalised position within the image widget (0..1)
-        nx = (touch.x - wx) / max(ww, 1)
-        ny = (touch.y - wy) / max(wh, 1)
-        # Clamp
-        nx = max(0.0, min(1.0, nx))
-        ny = max(0.0, min(1.0, ny))
-
-        sw, sh = self._surface.get_size()
-        # Kivy Y is bottom-up; pygame Y is top-down
-        px = int(nx * sw)
-        py = int((1.0 - ny) * sh)
-        return (px, py)
-
-    def _post_mouse_event(self, pos, etype, button=1):
-        event = pygame.event.Event(etype, {
-            "pos": pos,
-            "button": button,
-            "buttons": (1, 0, 0),
-        })
-        pygame.event.post(event)
-
-    def _on_touch_down(self, widget, touch):
-        if not self._image.collide_point(*touch.pos):
-            return False
-        pos = self._map_touch(touch)
-        btn = _KIVY_TO_PYGAME_BTN.get(getattr(touch, "button", "left"), 1)
-        self._post_mouse_event(pos, pygame.MOUSEBUTTONDOWN, btn)
-        self.dispatch("on_pygame_touch", pos[0], pos[1], "down")
-        return True
-
-    def _on_touch_move(self, widget, touch):
-        if not self._image.collide_point(*touch.pos):
-            return False
-        pos = self._map_touch(touch)
-        event = pygame.event.Event(pygame.MOUSEMOTION, {
-            "pos": pos,
-            "rel": (0, 0),
-            "buttons": (1, 0, 0),
-        })
-        pygame.event.post(event)
-        self.dispatch("on_pygame_touch", pos[0], pos[1], "move")
-        return True
-
-    def _on_touch_up(self, widget, touch):
-        pos = self._map_touch(touch)
-        btn = _KIVY_TO_PYGAME_BTN.get(getattr(touch, "button", "left"), 1)
-        self._post_mouse_event(pos, pygame.MOUSEBUTTONUP, btn)
-        self.dispatch("on_pygame_touch", pos[0], pos[1], "up")
-        return True
-
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
-    def stop(self):
-        """Call this when you want to shut down the widget cleanly."""
-        self._clock_event.cancel()
-        self.hide_keyboard()
-        Window.unbind(on_key_down=self._on_window_key_down)
-        Window.unbind(on_key_up=self._on_window_key_up)
+def _name_to_pg(name: str):
+    return _KEY_MAP.get(name.lower())
 
 
 # ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-def _kivy_mods_to_pygame(modifiers: list[str]) -> int:
-    mods = 0
-    if "shift" in modifiers:
-        mods |= pygame.KMOD_SHIFT
-    if "ctrl" in modifiers:
-        mods |= pygame.KMOD_CTRL
-    if "alt" in modifiers:
-        mods |= pygame.KMOD_ALT
-    if "meta" in modifiers or "super" in modifiers:
-        mods |= pygame.KMOD_META
-    return mods
-
-
-# ---------------------------------------------------------------------------
-# Demo — run this file directly to see the widget in action
+# Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    import math
-
-    class DemoApp(App):
-        def build(self):
-            self.widget = PygameWidget(
-                surface_size=(480, 320),
-                fps=60,
-                size_hint=(1, 1),
-            )
-            self.widget.bind(on_pygame_frame=self.game_loop)
-            self.widget.bind(on_pygame_keydown=self.on_key)
-            self.widget.bind(on_pygame_touch=self.on_touch)
-
-            self._t = 0.0
-            self._dots: list[tuple[int, int]] = []
-            self._last_key = ""
-            return self.widget
-
-        def game_loop(self, widget, surface: pygame.Surface, dt: float):
-            self._t += dt
-            surface.fill((18, 18, 28))
-
-            # Animated sine wave
-            w, h = surface.get_size()
-            pts = [
-                (x, h // 2 + int(50 * math.sin(self._t * 3 + x * 0.04)))
-                for x in range(0, w, 4)
-            ]
-            if len(pts) > 1:
-                pygame.draw.lines(surface, (80, 200, 255), False, pts, 2)
-
-            # Touch dots
-            for dx, dy in self._dots[-20:]:
-                pygame.draw.circle(surface, (255, 120, 60), (dx, dy), 8)
-
-            # Key display
-            font = pygame.font.SysFont("monospace", 20)
-            txt = font.render(f"Last key: {self._last_key}", True, (200, 200, 200))
-            surface.blit(txt, (10, 10))
-
-            # Instructions
-            small = pygame.font.SysFont("monospace", 14)
-            for i, line in enumerate([
-                "Touch to draw dots",
-                "Press any key to see key name",
-                "K = toggle keyboard",
-            ]):
-                surface.blit(small.render(line, True, (120, 120, 150)), (10, h - 55 + i * 16))
-
-        def on_key(self, widget, key, scancode, codepoint, modifiers):
-            self._last_key = key
-            if key == "k":
-                widget.toggle_keyboard()
-
-        def on_touch(self, widget, x, y, action):
-            if action == "down":
-                self._dots.append((x, y))
-
-    DemoApp().run()
+    MyPygameApp().run()

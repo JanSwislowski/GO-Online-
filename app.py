@@ -238,7 +238,7 @@ class game_screen:
         dy=30
         self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2+dy,board_width,board_height,self.tiles,
                          self.tiles,stone_r,player=self.color_game,increase_black=lambda:self.black_prisoners_label.increase_by_one(),
-                         increase_white=lambda:self.white_prisoners_label.increase_by_one())
+                         increase_white=lambda:self.white_prisoners_label.increase_by_one(),rules="China" if self.rule=="SuperIdol" else "Japan")
         width=100
         height=50
         diff=30
@@ -313,8 +313,8 @@ class game_screen:
     def switch_show_territory(self):
         self.board.show_ter^=1
     def pass_turn(self):
-        print(1)
         incoming_queue.put({"type":"pass turn"})
+        self.board.prev_move=None
         self.move()
         self.back_to_game()
     def confirm_turn_pass(self):

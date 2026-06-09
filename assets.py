@@ -1643,10 +1643,10 @@ class Picker:
             ))
         return rects
 
-from  functions import alpha_surface,update_board,check_legal_move,ch_score_board
+from  functions import alpha_surface,update_board,check_legal_move,ch_score_board,jp_score_board
 
 class Board:
-    def __init__(self,x,y,width,height,tiles_x,tiles_y,stone_ratio,player="black",increase_white=lambda: print("increase"),increase_black=lambda: print("increase")):
+    def __init__(self,x,y,width,height,tiles_x,tiles_y,stone_ratio,player="black",increase_white=lambda: print("increase"),increase_black=lambda: print("increase"),rules="China"):
         if tiles_x<2 or tiles_y<2:
             raise ValueError("tiles_x and tiles_y must be at least 2")
         tiles_x=int(tiles_x)
@@ -1662,7 +1662,9 @@ class Board:
         self.border_color=(150,120,80)
         stone_w=int(self.tile_width*stone_ratio)*2
         stone_h=int(self.tile_height*stone_ratio)*2
+        self.r=stone_w+3
 
+        self.rules=rules
         self.black_stone_img=pygame.transform.smoothscale(pygame.image.load("images/black.png"),(stone_w,stone_h)).convert_alpha()
         self.white_stone_img=pygame.transform.smoothscale(pygame.image.load("images/white.png"),(stone_w,stone_h)).convert_alpha()
         self.stones=[self.black_stone_img,self.white_stone_img]
@@ -1683,7 +1685,12 @@ class Board:
         self.turn=False
 
         y=140
-        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(300,y),(110,y),8,increase_white,increase_black)
+        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(300,y),(110,y),10,increase_white,increase_black)
+
+        self.prev_move=None
+
+        self.white_taken=0
+        self.black_taken=0
 
 
     def draw(self,surface):
@@ -1695,6 +1702,11 @@ class Board:
         for j in range(self.tiles_y):
             y=self.rect.y+j*self.tile_height
             pygame.draw.line(surface,self.border_color,(self.rect.x,y),(self.rect.x+self.rect.width,y),line_border)
+
+        if self.prev_move:
+            x=self.rect.x+self.prev_move[0]*self.tile_width
+            y=self.rect.y+self.prev_move[1]*self.tile_height
+            pygame.draw.circle(surface,(136, 8, 8),(x,y),self.r)
         #draw stones
         for i in range(self.tiles_x):
             for j in range(self.tiles_y):
@@ -1729,6 +1741,7 @@ class Board:
                     if (i,j) in self.white_ter and (i,j) in self.black_ter:
                         print("error",(i,j))
 
+
         self.particles.draw(surface)
 
 
@@ -1756,17 +1769,27 @@ class Board:
     def place(self,pos,player):
 
         self.board[pos[0]][pos[1]]=player
+        self.prev_move=pos
         self.taken=update_board(self.board,player)
         for i in self.taken:
             x = self.rect.x + i[0] * self.tile_width
             y = self.rect.y +i[1] * self.tile_height
             self.particles.add_particle(x,y,"Black" if player==1 else "White")
+        if player==1:
+            self.black_taken+=len(self.taken)
+        else:
+            self.white_taken+=len(self.taken)
+
 
         score=ch_score_board(self.board)
         self.white_ter=score[1]
         self.black_ter=score[2]
     def get_score(self,white_bias,black_bias):
-        return ch_score_board(self.board)[0]+black_bias-white_bias
+        if self.rules=="China":
+            return ch_score_board(self.board)[0]+black_bias-white_bias
+        else:
+            return jp_score_board(self.board,self.white_taken,self.black_taken)[0]+black_bias-white_bias
+
 
     def update(self):
         mc=pygame.mouse.get_pressed()[0]
