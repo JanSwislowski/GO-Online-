@@ -131,7 +131,7 @@ def check_legal_move(board,x,y,player):
 
 def update_board(board,player):
     vis=[[False for _ in range(len(board[0]))] for _ in range(len(board))]
-    taken=[]
+    taken=set([])
     player^=1
     for i in range(len(board)):
         for j in range(len(board[0])):
@@ -141,7 +141,7 @@ def update_board(board,player):
                 if count==0:
                     for x,y in group:
                         board[x][y]=-1
-                        taken.append((x,y))
+                        taken.add((x,y))
     return taken
 
 def dfs_score(board,x,y,vis,group):

@@ -1646,7 +1646,7 @@ class Picker:
 from  functions import alpha_surface,update_board,check_legal_move,ch_score_board
 
 class Board:
-    def __init__(self,x,y,width,height,tiles_x,tiles_y,stone_ratio,player="black"):
+    def __init__(self,x,y,width,height,tiles_x,tiles_y,stone_ratio,player="black",increase_white=lambda: print("increase"),increase_black=lambda: print("increase")):
         if tiles_x<2 or tiles_y<2:
             raise ValueError("tiles_x and tiles_y must be at least 2")
         tiles_x=int(tiles_x)
@@ -1676,10 +1676,14 @@ class Board:
         self.white_ter=[]
         self.black_ter=[]
         self.show_ter=0
+        self.taken=set([])
 
         self.pressed=False
 
         self.turn=False
+
+        y=200
+        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(100,200),(300,y),3,10,increase_white,increase_black)
 
 
     def draw(self,surface):
@@ -1710,21 +1714,22 @@ class Board:
                 rect=stone.get_rect(center=(x,y))
                 surface.blit(alpha_surface(stone,alpha),rect)
         # draw ter
-        if not self.show_ter:
-            return
-        white=(200,200,200)
-        black=(20,20,20)
-        for i in range(self.tiles_x):
-            for j in range(self.tiles_y):
-                if (i,j) in self.white_ter or (i,j) in self.black_ter:
-                    x=self.rect.x+i*self.tile_width
-                    y=self.rect.y+j*self.tile_height
-                    stone=self.stones[self.player]
-                    rect=stone.get_rect(center=(x,y))
-                    color=white if (i,j) in self.white_ter else black
-                    pygame.draw.rect(surface,color,rect)
-                if (i,j) in self.white_ter and (i,j) in self.black_ter:
-                    print("error",(i,j))
+        if self.show_ter:
+            white=(200,200,200)
+            black=(20,20,20)
+            for i in range(self.tiles_x):
+                for j in range(self.tiles_y):
+                    if (i,j) in self.white_ter or (i,j) in self.black_ter:
+                        x=self.rect.x+i*self.tile_width
+                        y=self.rect.y+j*self.tile_height
+                        stone=self.stones[self.player]
+                        rect=stone.get_rect(center=(x,y))
+                        color=white if (i,j) in self.white_ter else black
+                        pygame.draw.rect(surface,color,rect)
+                    if (i,j) in self.white_ter and (i,j) in self.black_ter:
+                        print("error",(i,j))
+
+        self.particles.draw(surface)
 
 
     def get_hovered(self,mp):
@@ -1745,11 +1750,17 @@ class Board:
             return False
         if not check_legal_move(self.board,pos[0],pos[1],self.player):
             return False
+        if pos in self.taken:
+            return False
         return True
     def place(self,pos,player):
 
         self.board[pos[0]][pos[1]]=player
-        update_board(self.board,player)
+        self.taken=update_board(self.board,player)
+        for i in self.taken:
+            x = self.rect.x + i[0] * self.tile_width
+            y = self.rect.y +i[1] * self.tile_height
+            self.particles.add_particle(x,y,"White" if player==1 else "Black")
 
         score=ch_score_board(self.board)
         self.white_ter=score[1]
@@ -1760,6 +1771,7 @@ class Board:
     def update(self):
         mc=pygame.mouse.get_pressed()[0]
         mp=pygame.mouse.get_pos()
+        self.particles.update()
         if mc:
             self.pressed=True
         elif self.pressed:
@@ -2287,33 +2299,18 @@ class Go_particles:
 class Particle1:
     def __init__(self,x,y,init_vel,tx,ty,info=None):
         self.pos=pygame.Vector2(x,y)
-
-        self.vel=pygame.Vector2(init_vel,0)
-        self.vel=self.vel.rotate(random.randint(0,360-1))
+        self.vel=pygame.Vector2(tx-x,ty-y)
+        self.vel.scale_to_length(init_vel)
         print(self.vel)
         self.tx=tx
         self.ty=ty
         self.info =info
         self.alive=True
-    def update_vel(self):
-        a=0.5
-        base=1.5
-        l=pygame.Vector2(self.tx-self.pos.x,self.ty-self.pos.y).length()
-        if l==0:
-            self.alive=False
-            return
-
-        factor=math.log(base,l)+a
-        acc=pygame.Vector2(self.tx-self.pos.x,self.ty-self.pos.y)
-        acc.scale_to_length(factor)
-        self.vel+=acc
-        self.vel.scale_to_length(min(8,self.vel.length()))
     def get_pos(self):
         return self.pos.x,self.pos.y
     def update(self):
         if self.alive==False:
             return
         self.pos+=self.vel
-        self.update_vel()
         if pygame.Vector2(self.tx-self.pos.x,self.ty-self.pos.y).length()<=self.vel.length():
             self.alive=False

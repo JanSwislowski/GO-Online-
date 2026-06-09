@@ -32,14 +32,15 @@ class ChooseScreen:
         button_width = 200
         button_height = 50
         diff=45
-        self.host_button = Button(100, self.height//2-diff, button_width, button_height, "Host",callback=self.host_page,pos_type="centery")
-        self.join_button = Button(100, self.height//2+diff, button_width, button_height, "Join",callback=self.join_page,pos_type="centery")
+        self.host_button = Button(self.width//2-button_width//2, self.height//2-diff, button_width, button_height, "Host",callback=self.host_page,pos_type="centery")
+        self.join_button = Button(self.width//2-button_width//2, self.height//2+diff, button_width, button_height, "Join",callback=self.join_page,pos_type="centery")
 
     def close(self):
         #set all to None
         self.surface=None
         self.host_button=None
         self.join_button=None
+        self.active=False
 
     def set_login(self):
         self.login=True
@@ -80,8 +81,8 @@ class StartScreen:
 
         button_width = 200
         button_height = 50
-        self.name_text_box=TextBox(100, 200, button_width, button_height,placeholder="Name",max_length=20)
-        self.start_button = Button(100, 320, button_width, button_height, "Start",callback=self.next_page)
+        self.name_text_box=TextBox(self.width//2-button_width//2, 200, button_width, button_height,placeholder="Name",max_length=20)
+        self.start_button = Button(self.width//2-button_width//2, 320, button_width, button_height, "Start",callback=self.next_page)
 
         self.title=Label(self.width//2, 60, "GO", font=font_verybig,pos_type="center")
 
@@ -219,20 +220,7 @@ class game_screen:
 
     def load(self):
         self.surface=pygame.surface.Surface((self.w, self.h))
-        board_width=300
-        board_height=300
-        stone_r=0.33
-        dy=30
-        self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2+dy,board_width,board_height,self.tiles,self.tiles,stone_r,player=self.color_game)
-        width=100
-        height=50
-        diff=30
-        y=self.h-80
-        # color=(100,149,237)
 
-        color=(100,109,240)
-        self.show_territory=SimpleButton(self.w//2+diff,y,width,height,color,"images/eye.png",5,call_back=lambda: self.switch_show_territory())
-        self.pass_button=SimpleButton(self.w//2-diff-width,y,width,height,color,"images/pass.png",5,call_back=lambda: self.confirm_turn_pass())
 
         y=115
         dur=200
@@ -243,6 +231,24 @@ class game_screen:
 
         self.white_prisoners_label=ScoreLabel(self.w_x,y,font_large,(255,255,255),0,bump_duration_ms=dur,)
         self.black_prisoners_label=ScoreLabel(self.b_x,y,font_large,(0,0,0),0,bump_duration_ms=dur,)
+
+        board_width=300
+        board_height=300
+        stone_r=0.33
+        dy=30
+        self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2+dy,board_width,board_height,self.tiles,
+                         self.tiles,stone_r,player=self.color_game,increase_black=self.black_prisoners_label.increase_by_one(),
+                         increase_white=self.white_prisoners_label.increase_by_one())
+        width=100
+        height=50
+        diff=30
+        y=self.h-80
+        # color=(100,149,237)
+
+        color=(100,109,240)
+        self.show_territory=SimpleButton(self.w//2+diff,y,width,height,color,"images/eye.png",5,call_back=lambda: self.switch_show_territory())
+        self.pass_button=SimpleButton(self.w//2-diff-width,y,width,height,color,"images/pass.png",5,call_back=lambda: self.confirm_turn_pass())
+
         a=50
         self.black_stone=pygame.transform.smoothscale(pygame.image.load("images/black.png"),(a,a)).convert_alpha()
         self.white_stone=pygame.transform.smoothscale(pygame.image.load("images/white.png"),(a,a)).convert_alpha()
@@ -400,20 +406,34 @@ class game_screen:
         self.active=True
 
 class join_screen:
-    def __init__(self,width, height):
+    def __init__(self,width, height,back_func,refresh_func):
         self.color=(200, 200, 200)
         self.w=width
         self.h=height
         self.active=False
+        self.back_func=back_func
+        self.refresh=refresh_func
     def load(self):
         self.surface=pygame.surface.Surface((self.w, self.h))
         padding_x=50
         padding_y=20
-        self.list=ServerList(self.w-padding_x*2,self.h-padding_y*2,padding_x,padding_y)
+        h=50
+        padding=10
+        self.list=ServerList(self.w-padding_x*2,self.h-padding_y*2-h-padding,padding_x,padding_y)
+
+        button_w=130
+        color=(100,149,237)
+        padding_y=10
+        padding_x=20
+        self.refresh_button=SimpleButton(self.w-button_w-padding_x,self.h-padding_y-h,button_w,h,color,"images/refresh.png",5,call_back=self.refresh)
+        self.back_button=SimpleButton(padding_x,self.h-padding_y-h,button_w,h,color,"images/exit.png",5,call_back=self.back_func)
+
     def close(self):
         self.surface=None
         self.list=None
         self.active=False
+        self.refresh_button=None
+        self.refresh_button=None
     def update(self):
         if not self.active:
             return
@@ -421,9 +441,13 @@ class join_screen:
         if not self.active:
             return
         self.list.handle_event(event)
+        self.refresh_button.handle_event(event)
+        self.back_button.handle_event(event)
     def draw(self):
         self.surface.fill((200, 200, 200))
         self.list.draw(self.surface)
+        self.refresh_button.draw(self.surface)
+        self.back_button.draw(self.surface)
         return self.surface
     def activate(self):
         self.active=True
@@ -539,10 +563,12 @@ class end_game_screen:
         if not self.active:
             return
         self.home_button.handle_event(event)
-
+from mouse import mouse
 class App:
     def __init__(self):
-        pygame.init()
+
+
+
         ratio=4/3
         x=450
         W=int(x*(1/ratio))
@@ -557,7 +583,7 @@ class App:
                 "choose": ChooseScreen(self.width, self.height,lambda: self.switch_page("host"),lambda: self.switch_page("join")),
                 "host": game_setup_screen(self.width, self.height,lambda: self.switch_page("choose"),lambda: self.switch_page("load")),
                 "game": game_screen(self.width, self.height),
-                "join": join_screen(self.width, self.height),
+                "join": join_screen(self.width, self.height,back_func=lambda:self.switch_page("choose"),refresh_func=lambda: self.refresh_join()),
                 "load": loading_screen(self.width, self.height),
                 "end game":end_game_screen(self.width,self.height,lambda: self.switch_page("choose"))
         }
@@ -677,7 +703,8 @@ class App:
         elif event["type"]=="game_finished":
             self.end_game()
             print("finishing game")
-
+    def refresh_join(self):
+        outgoing_queue.put({"type": "get rooms", "token": self.token})
     def end_game(self):
         score=self.pages["game"].get_score()
         if score>0 and self.pages["game"].color_game=="black":

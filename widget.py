@@ -145,6 +145,7 @@ class PygameWidget(BoxLayout):
         os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 
         self._surface_size = surface_size  # resolved in on_size
+        self._mouse_pos: tuple[int, int] = (0, 0)
         self._surface: pygame.Surface | None = None
         self._texture: Texture | None = None
 
@@ -335,6 +336,7 @@ class PygameWidget(BoxLayout):
         if not self._image.collide_point(*touch.pos):
             return False
         pos = self._map_touch(touch)
+        self._mouse_pos = pos
         btn = _KIVY_TO_PYGAME_BTN.get(getattr(touch, "button", "left"), 1)
         self._post_mouse_event(pos, pygame.MOUSEBUTTONDOWN, btn)
         self.dispatch("on_pygame_touch", pos[0], pos[1], "down")
@@ -344,6 +346,7 @@ class PygameWidget(BoxLayout):
         if not self._image.collide_point(*touch.pos):
             return False
         pos = self._map_touch(touch)
+        self._mouse_pos = pos
         event = pygame.event.Event(pygame.MOUSEMOTION, {
             "pos": pos,
             "rel": (0, 0),
@@ -359,6 +362,14 @@ class PygameWidget(BoxLayout):
         self._post_mouse_event(pos, pygame.MOUSEBUTTONUP, btn)
         self.dispatch("on_pygame_touch", pos[0], pos[1], "up")
         return True
+
+    def get_mouse_pos(self) -> tuple[int, int]:
+        """
+        Return the last known mouse / touch position in Pygame surface
+        pixel coordinates.  Equivalent to pygame.mouse.get_pos() but
+        correctly mapped to the surface resolution regardless of widget size.
+        """
+        return self._mouse_pos
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -386,67 +397,3 @@ def _kivy_mods_to_pygame(modifiers: list[str]) -> int:
         mods |= pygame.KMOD_META
     return mods
 
-
-# ---------------------------------------------------------------------------
-# Demo — run this file directly to see the widget in action
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    import math
-
-    class DemoApp(App):
-        def build(self):
-            self.widget = PygameWidget(
-                surface_size=(480, 320),
-                fps=60,
-                size_hint=(1, 1),
-            )
-            self.widget.bind(on_pygame_frame=self.game_loop)
-            self.widget.bind(on_pygame_keydown=self.on_key)
-            self.widget.bind(on_pygame_touch=self.on_touch)
-
-            self._t = 0.0
-            self._dots: list[tuple[int, int]] = []
-            self._last_key = ""
-            return self.widget
-
-        def game_loop(self, widget, surface: pygame.Surface, dt: float):
-            self._t += dt
-            surface.fill((18, 18, 28))
-
-            # Animated sine wave
-            w, h = surface.get_size()
-            pts = [
-                (x, h // 2 + int(50 * math.sin(self._t * 3 + x * 0.04)))
-                for x in range(0, w, 4)
-            ]
-            if len(pts) > 1:
-                pygame.draw.lines(surface, (80, 200, 255), False, pts, 2)
-
-            # Touch dots
-            for dx, dy in self._dots[-20:]:
-                pygame.draw.circle(surface, (255, 120, 60), (dx, dy), 8)
-
-            # Key display
-            font = pygame.font.SysFont("monospace", 20)
-            txt = font.render(f"Last key: {self._last_key}", True, (200, 200, 200))
-            surface.blit(txt, (10, 10))
-
-            # Instructions
-            small = pygame.font.SysFont("monospace", 14)
-            for i, line in enumerate([
-                "Touch to draw dots",
-                "Press any key to see key name",
-                "K = toggle keyboard",
-            ]):
-                surface.blit(small.render(line, True, (120, 120, 150)), (10, h - 55 + i * 16))
-
-        def on_key(self, widget, key, scancode, codepoint, modifiers):
-            self._last_key = key
-            if key == "k":
-                widget.toggle_keyboard()
-
-        def on_touch(self, widget, x, y, action):
-            if action == "down":
-                self._dots.append((x, y))
-
-    DemoApp().run()
