@@ -624,7 +624,10 @@ class App:
         if page_name=="join":
             outgoing_queue.put({"type": "get rooms", "token": self.token})
         if self.current_page=="start":
-            outgoing_queue.put({"type": "login","username": self.pages["start"].name_text_box.get_text()})
+            username=self.pages["start"].name_text_box.get_text().strip()
+            if username=="":
+                username=random.choice(["TuffBoi67","Nilly Oigga","GOść","MamMałego","Jeff","John Pork","SixSeven","Mirosław","Respect"])
+            outgoing_queue.put({"type": "login","username": username})
     def host_game(self,player1,player2):
         host_color = self.pages["host"].color_picker.get_selected()
         tiles=self.pages["host"].tiles_slider.value
