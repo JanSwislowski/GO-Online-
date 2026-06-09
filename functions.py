@@ -211,7 +211,7 @@ def ch_score_board(board):
                 score-=1
     return score,white_ter,black_ter
 def jp_score_board(board,white_taken,black_taken):
-    score=ch_score_board(board)
+    score=ch_score_board(board)[0]
     for i in board:
         for j in i:
             if j==0:
