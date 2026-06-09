@@ -1,6 +1,6 @@
 import pygame.transform
 
-from assets import TextBox, Button, Label,Icon,Picker,Slider,Board,ServerList,Picker2,SimpleButton,ScoreLabel,Pass_confirm
+from assets import TextBox, Button, Label,Picker,Slider,Board,ServerList,Picker2,SimpleButton,ScoreLabel,Pass_confirm
 from functions import *
 from setup import running,incoming_queue,outgoing_queue
 import random
@@ -780,9 +780,12 @@ class App:
         else:
             self.first_poll_game=True
 
-
+    def update_mouse(self):
+        mouse.update_pos(pygame.mouse.get_pos())
+        mouse.update_pressed(pygame.mouse.get_pressed()[0])
 
     def update(self):
+        self.update_mouse()
         if self.start_fade is not None:
             self.update_fade()
             return

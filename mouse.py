@@ -6,4 +6,4 @@ class Mouse:
         self.pos=pos
     def update_pressed(self,pressed):
         self.pressed=pressed
-mouse=Mouse
+mouse=Mouse()

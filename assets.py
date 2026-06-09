@@ -1,5 +1,6 @@
 import pygame
 import math
+from mouse import  mouse
 pygame.init()
 
 font=pygame.font.SysFont("TimesNewRoman", 18)
@@ -1233,321 +1234,6 @@ class Label:
             if f:
                 return f
         return pygame.font.Font(None, size)
-class Icon:
-    """
-    A circular avatar widget that clips any image into a circle,
-    with click detection, hover highlight, press animation, and
-    an optional ripple effect on click.
-
-    Constructor
-    -----------
-    x, y            – centre position of the circle
-    radius          – circle radius in pixels
-    image           – pygame.Surface to display (cropped + scaled to fit)
-    callback        – callable fired on click (optional)
-
-    Style knobs
-    -----------
-    border_color    – ring colour (None = no ring)
-    border_width    – ring thickness in pixels
-    border_hover    – ring colour on hover (None = same as border_color)
-    color_highlight – overlay tint on hover (RGBA)
-    color_ripple    – ripple colour (RGB)
-    shadow          – draw a soft drop-shadow behind the circle
-    shadow_color    – shadow colour (RGBA)
-    badge_text      – short string drawn in a small badge (e.g. "3")
-    badge_color     – badge background colour
-    badge_text_color
-    fade_in         – alpha fades 0 → 255 on first draw
-
-    Public API
-    ----------
-    handle_event(event) → bool   (True if clicked)
-    update()
-    draw(surface)
-    set_image(surf)     → self
-    is_hovered() → bool
-    enable() / disable()
-    """
-
-    _RIPPLE_LIFE   = 0.50   # seconds
-    _HOVER_SPEED   = 9.0    # lerp speed
-    _PRESS_SCALE   = 0.91
-    _FADE_SPEED    = 380    # alpha / second
-
-    def __init__(
-        self,
-        x: int,
-        y: int,
-        radius: int,
-        image: "pygame.Surface | None" = None,
-        callback=None,
-        # style
-        border_color:      "tuple | None" = (255, 255, 255),
-        border_width:      int            = 3,
-        border_hover:      "tuple | None" = None,
-        color_highlight:   tuple          = (255, 255, 255, 55),
-        color_ripple:      tuple          = (255, 255, 255),
-        shadow:            bool           = True,
-        shadow_color:      tuple          = (0, 0, 0, 60),
-        badge_text:        str            = "",
-        badge_color:       tuple          = (230, 50, 60),
-        badge_text_color:  tuple          = (255, 255, 255),
-        enabled:           bool           = True,
-        fade_in:           bool           = False,
-    ):
-        self._cx        = x
-        self._cy        = y
-        self._radius    = radius
-        self._callback  = callback
-        self.enabled    = enabled
-
-        self._border_color     = border_color
-        self._border_width     = border_width
-        self._border_hover     = border_hover or border_color
-        self._color_highlight  = color_highlight
-        self._color_ripple     = color_ripple
-        self._shadow           = shadow
-        self._shadow_color     = shadow_color
-        self._badge_text       = badge_text
-        self._badge_color      = badge_color
-        self._badge_text_color = badge_text_color
-
-        # Circular image cache
-        self._source_image: "pygame.Surface | None" = None
-        self._circle_surf:  "pygame.Surface | None" = None
-        if image is not None:
-            self._bake_circle(image)
-
-        # Badge font
-        badge_font_size = max(10, radius // 2)
-        self._badge_font = self._load_font(badge_font_size)
-
-        # Animation state
-        self._hovered:      bool  = False
-        self._pressed:      bool  = False
-        self._hover_t:      float = 0.0
-        self._scale:        float = 1.0
-        self._ripples:      list  = []
-
-        # Fade-in
-        self._alpha      = 0 if fade_in else 255
-        self._fade_in    = fade_in
-
-        self._last_tick  = pygame.time.get_ticks()
-
-    # ----------------------------------------------------------------
-    # Public API
-    # ----------------------------------------------------------------
-
-    def handle_event(self, event,mouse_delta=(0,0)) -> bool:
-        """Feed a pygame event. Returns True if the icon was clicked."""
-        if not self.enabled:
-            return False
-        mouse_pos=add_vectors(pygame.mouse.get_pos(),mouse_delta)
-        if event.type == pygame.MOUSEMOTION:
-            self._hovered = self._hit(mouse_pos)
-
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self._hit(mouse_pos):
-                self._pressed = True
-
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            was_pressed   = self._pressed
-            self._pressed = False
-            if was_pressed and self._hit(mouse_pos):
-                self._ripples.append({
-                    "born": pygame.time.get_ticks() / 1000.0,
-                })
-                if self._callback:
-                    self._callback()
-                return True
-        return False
-
-    def update(self) -> None:
-        """Call once per frame."""
-        now  = pygame.time.get_ticks() / 1000.0
-        dt   = (now - self._last_tick / 1000.0 if hasattr(self, "_last_tick")
-                else 0.016)
-        self._last_tick = pygame.time.get_ticks()
-
-        # Fade-in
-        if self._alpha < 255:
-            self._alpha = min(255, self._alpha + int(self._FADE_SPEED * dt))
-
-        # Hover lerp
-        target_h = 1.0 if (self._hovered and not self._pressed) else 0.0
-        self._hover_t += (target_h - self._hover_t) * min(1.0, self._HOVER_SPEED * dt)
-
-        # Scale spring
-        target_s = self._PRESS_SCALE if self._pressed else 1.0
-        self._scale += (target_s - self._scale) * min(1.0, 20.0 * dt)
-
-        # Prune dead ripples
-        self._ripples = [r for r in self._ripples
-                         if now - r["born"] < self._RIPPLE_LIFE]
-
-    def draw(self, surface: pygame.Surface) -> None:
-        """Render the icon onto *surface*."""
-        now = pygame.time.get_ticks() / 1000.0
-
-        # Scaled radius and centre
-        sr  = int(self._radius * self._scale)
-        cx, cy = self._cx, self._cy
-
-        # Work on a buffer big enough for shadow bleed
-        pad = self._radius + 12
-        buf_size = (pad * 2, pad * 2)
-        buf  = pygame.Surface(buf_size, pygame.SRCALPHA)
-        bcx, bcy = pad, pad   # local centre
-
-        # ── shadow ────────────────────────────────────────────────
-        if self._shadow:
-            sa   = self._shadow_color[3] if len(self._shadow_color) > 3 else 60
-            blur = 7 + int(4 * self._hover_t)
-            for b in range(blur, 0, -1):
-                sc = (*self._shadow_color[:3],
-                      max(0, int(sa * b / blur * 0.5)))
-                pygame.draw.circle(buf, sc,
-                                   (bcx, bcy + b), sr + b)
-
-        # ── image circle ──────────────────────────────────────────
-        if self._circle_surf is not None:
-            scaled = pygame.transform.smoothscale(
-                self._circle_surf,
-                (sr * 2, sr * 2),
-            )
-            buf.blit(scaled, (bcx - sr, bcy - sr))
-        else:
-            # Fallback grey circle
-            pygame.draw.circle(buf, (180, 180, 190), (bcx, bcy), sr)
-
-        # ── hover highlight overlay ────────────────────────────────
-        if self._hover_t > 0.01:
-            hl_alpha = int(self._color_highlight[3] * self._hover_t)
-            hl_surf  = pygame.Surface((sr * 2, sr * 2), pygame.SRCALPHA)
-            pygame.draw.circle(hl_surf, (*self._color_highlight[:3], hl_alpha),
-                               (sr, sr), sr)
-            buf.blit(hl_surf, (bcx - sr, bcy - sr))
-
-        # ── ripples ───────────────────────────────────────────────
-        for r in self._ripples:
-            age      = now - r["born"]
-            progress = age / self._RIPPLE_LIFE
-            rr       = int(sr * self._ease_out(progress))
-            alpha    = int(200 * (1.0 - progress))
-            rsurf    = pygame.Surface((sr * 2, sr * 2), pygame.SRCALPHA)
-            pygame.draw.circle(rsurf, (*self._color_ripple, alpha),
-                               (sr, sr), rr)
-            # mask to circle shape
-            mask = pygame.Surface((sr * 2, sr * 2), pygame.SRCALPHA)
-            pygame.draw.circle(mask, (255, 255, 255, 255), (sr, sr), sr)
-            rsurf.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-            buf.blit(rsurf, (bcx - sr, bcy - sr))
-
-        # ── border ring ───────────────────────────────────────────
-        if self._border_color and self._border_width:
-            bc = self._lerp_color(self._border_color,
-                                  self._border_hover,
-                                  self._hover_t)
-            pygame.draw.circle(buf, (*bc, 255),
-                               (bcx, bcy), sr,
-                               width=self._border_width)
-
-        # ── disabled overlay ──────────────────────────────────────
-        if not self.enabled:
-            ov = pygame.Surface(buf_size, pygame.SRCALPHA)
-            pygame.draw.circle(ov, (255, 255, 255, 140), (bcx, bcy), sr)
-            buf.blit(ov, (0, 0))
-
-        # ── blit buffer to screen ─────────────────────────────────
-        if self._alpha < 255:
-            buf.set_alpha(self._alpha)
-        surface.blit(buf, (cx - pad, cy - pad))
-
-        # ── badge (drawn directly on screen, not scaled) ──────────
-        if self._badge_text:
-            self._draw_badge(surface)
-
-    def set_image(self, surf: "pygame.Surface | None") -> "Icon":
-        self._bake_circle(surf)
-        return self
-
-    def is_hovered(self) -> bool:
-        return self._hovered and self.enabled
-
-    def enable(self)  -> None:  self.enabled = True
-    def disable(self) -> None:  self.enabled = False
-
-    def set_badge(self, text: str) -> "Icon":
-        self._badge_text = text
-        return self
-
-    # ----------------------------------------------------------------
-    # Private helpers
-    # ----------------------------------------------------------------
-
-    def _hit(self, pos) -> bool:
-        """True if *pos* is inside the circle."""
-        dx, dy = pos[0] - self._cx, pos[1] - self._cy
-        return math.hypot(dx, dy) <= self._radius
-
-    def _bake_circle(self, surf: pygame.Surface) -> None:
-        """
-        Pre-render the image clipped to a circle of diameter 2*_radius.
-        We store it at native size; draw() smoothscales to the current scale.
-        """
-        d    = self._radius * 2
-        self._source_image = surf
-
-        # Scale source to fill the circle
-        sw, sh = surf.get_size()
-        scale  = max(d / sw, d / sh)
-        nw, nh = int(sw * scale), int(sh * scale)
-        scaled = pygame.transform.smoothscale(surf, (nw, nh))
-
-        # Centre-crop
-        ox = (nw - d) // 2
-        oy = (nh - d) // 2
-        cropped = scaled.subsurface(pygame.Rect(ox, oy, d, d)).copy()
-
-        # Apply circular mask
-        circle_surf = pygame.Surface((d, d), pygame.SRCALPHA)
-        pygame.draw.circle(circle_surf, (255, 255, 255, 255), (d // 2, d // 2), d // 2)
-        cropped = cropped.convert_alpha()
-        cropped.blit(circle_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-
-        self._circle_surf = cropped
-
-    def _draw_badge(self, surface: pygame.Surface) -> None:
-        txt  = self._badge_font.render(self._badge_text, True, self._badge_text_color)
-        tw, th = txt.get_size()
-        br   = max(tw, th) // 2 + 5
-        bx   = self._cx + int(self._radius * 0.68)
-        by   = self._cy - int(self._radius * 0.68)
-        pygame.draw.circle(surface, self._badge_color, (bx, by), br)
-        pygame.draw.circle(surface, (255, 255, 255), (bx, by), br, width=2)
-        surface.blit(txt, (bx - tw // 2, by - th // 2))
-
-    @staticmethod
-    def _lerp_color(c1, c2, t):
-        if c1 is None or c2 is None:
-            return c1 or c2
-        t = max(0.0, min(1.0, t))
-        return tuple(int(a + (b - a) * t) for a, b in zip(c1[:3], c2[:3]))
-
-    @staticmethod
-    def _ease_out(t: float) -> float:
-        return 1.0 - (1.0 - t) ** 3
-
-    @staticmethod
-    def _load_font(size: int):
-        for name in ("dejavusans", "freesans", "liberationsans",
-                     "segoeui", "calibri", "noto"):
-            f = pygame.font.SysFont(name, size)
-            if f:
-                return f
-        return pygame.font.Font(None, size)
 
 class Picker:
     def __init__(self, x, y, width, height, options, font):
@@ -1565,8 +1251,8 @@ class Picker:
         self.text_color = (0, 0, 0)
         self.hover_index = -1
 
-    def handle_event(self, event,mp=(0,0)):
-        mp=pygame.mouse.get_pos() if mp==(0,0) else mp
+    def handle_event(self, event):
+        mp=mouse.pos
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(mp):
                 self.is_open = not self.is_open
@@ -1589,7 +1275,7 @@ class Picker:
 
         # hover
         if self.is_open:
-            mouse_pos = pygame.mouse.get_pos()
+            mouse_pos = mouse.pos
             self.hover_index = -1
             for i, rect in enumerate(self.get_option_rects()):
                 if rect.collidepoint(mouse_pos):
@@ -1703,10 +1389,10 @@ class Board:
             y=self.rect.y+j*self.tile_height
             pygame.draw.line(surface,self.border_color,(self.rect.x,y),(self.rect.x+self.rect.width,y),line_border)
 
-        if self.prev_move:
-            x=self.rect.x+self.prev_move[0]*self.tile_width
-            y=self.rect.y+self.prev_move[1]*self.tile_height
-            pygame.draw.circle(surface,(136, 8, 8),(x,y),self.r)
+        # if self.prev_move:
+        #     x=self.rect.x+self.prev_move[0]*self.tile_width
+        #     y=self.rect.y+self.prev_move[1]*self.tile_height
+        #     pygame.draw.circle(surface,(136, 8, 8),(x,y),self.r)
         #draw stones
         for i in range(self.tiles_x):
             for j in range(self.tiles_y):
@@ -1718,7 +1404,7 @@ class Board:
                     surface.blit(stone,stone_rect)
         alpha=100
         if self.pressed:
-            pos=self.get_hovered(pygame.mouse.get_pos())
+            pos=self.get_hovered(mouse.pos)
             if pos!=-1:
                 x=self.rect.x+pos[0]*self.tile_width
                 y=self.rect.y+pos[1]*self.tile_height
@@ -1792,8 +1478,8 @@ class Board:
 
 
     def update(self):
-        mc=pygame.mouse.get_pressed()[0]
-        mp=pygame.mouse.get_pos()
+        mc=mouse.pressed
+        mp=mouse.pos
         self.particles.update()
         if mc:
             self.pressed=True
@@ -2020,11 +1706,11 @@ class SimpleButton:
     def handle_event(self,event,mouse_delta=(0,0)):
 
         if event.type==pygame.MOUSEBUTTONDOWN and event.button==1:
-            pos=add_vectors(pygame.mouse.get_pos(),mouse_delta)
+            pos=add_vectors(mouse.pos,mouse_delta)
             if self.rect.collidepoint(pos):
                 self.active=True
         elif event.type==pygame.MOUSEBUTTONUP and event.button==1:
-            pos=add_vectors(pygame.mouse.get_pos(),mouse_delta)
+            pos=add_vectors(mouse.pos,mouse_delta)
             if self.active and self.rect.collidepoint(pos):
                 self.call_back()
             self.active=False
@@ -2122,8 +1808,8 @@ class Picker2:
             label=Label(option_rect.centerx,option_rect.centery,text=option,color_text=self.text_color,font=self.font,pos_type="center")
             label.draw(surface)
     def update(self):
-        if pygame.mouse.get_pressed()[0]:
-            mouse_pos=pygame.mouse.get_pos()
+        if mouse.pressed:
+            mouse_pos=mouse.pos
             if self.rect.collidepoint(mouse_pos):
                 w=self.rect.width/len(self.options)
                 clicked_option=int((mouse_pos[0]-self.rect.x)/w)
