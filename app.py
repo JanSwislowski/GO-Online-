@@ -237,8 +237,8 @@ class game_screen:
         stone_r=0.33
         dy=30
         self.board=Board(self.w//2-board_width//2,self.h//2-board_height//2+dy,board_width,board_height,self.tiles,
-                         self.tiles,stone_r,player=self.color_game,increase_black=self.black_prisoners_label.increase_by_one(),
-                         increase_white=self.white_prisoners_label.increase_by_one())
+                         self.tiles,stone_r,player=self.color_game,increase_black=lambda:self.black_prisoners_label.increase_by_one(),
+                         increase_white=lambda:self.white_prisoners_label.increase_by_one())
         width=100
         height=50
         diff=30
@@ -453,7 +453,8 @@ class join_screen:
         self.active=True
     def add_server(self,name,join_callback,room_id):
         self.list.add_server(name,join_callback,room_id)
-
+    def clear(self):
+        self.list.clear_servers()
 class loading_screen:
     def __init__(self,width,height):
         self.color=(200, 200, 200)
@@ -704,6 +705,7 @@ class App:
             self.end_game()
             print("finishing game")
     def refresh_join(self):
+        self.pages["join"].clear()
         outgoing_queue.put({"type": "get rooms", "token": self.token})
     def end_game(self):
         score=self.pages["game"].get_score()

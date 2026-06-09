@@ -1683,7 +1683,7 @@ class Board:
         self.turn=False
 
         y=200
-        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(100,200),(300,y),3,10,increase_white,increase_black)
+        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(100,200),(300,y),8,10,increase_white,increase_black)
 
 
     def draw(self,surface):
@@ -2070,6 +2070,8 @@ class ServerList:
     def handle_event(self,event):
         for server in self.servers:
             server.handle_event(event,(-self.rect.x,-self.rect.y))
+    def clear_servers(self):
+        self.servers=[]
 
 class Picker2:
     def __init__(self,cx,y,width,height,font,options=[],color=(50,50,50),chosen_color=(100,100,100),text_color=(255,255,255)):
