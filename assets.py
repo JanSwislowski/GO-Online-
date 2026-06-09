@@ -1788,7 +1788,7 @@ class Board:
         if self.rules=="China":
             return ch_score_board(self.board)[0]+black_bias-white_bias
         else:
-            return jp_score_board(self.board,self.white_taken,self.black_taken)[0]+black_bias-white_bias
+            return jp_score_board(self.board,self.white_taken,self.black_taken)+black_bias-white_bias
 
 
     def update(self):
