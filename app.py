@@ -711,7 +711,7 @@ class App:
         outgoing_queue.put({"type": "get rooms", "token": self.token})
     def end_game(self):
         score=self.pages["game"].get_score()
-        if score>0 and self.pages["game"].color_game=="black":
+        if score>0 and self.pages["game"].color_game=="Black":
             txt="Wygrana!"
         elif score<0 and  self.pages["game"].color_game=="White":
             txt="Wygrana!"

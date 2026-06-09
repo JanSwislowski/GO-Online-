@@ -1662,7 +1662,7 @@ class Board:
         self.border_color=(150,120,80)
         stone_w=int(self.tile_width*stone_ratio)*2
         stone_h=int(self.tile_height*stone_ratio)*2
-        self.r=stone_w+3
+        self.r=stone_w-9
 
         self.rules=rules
         self.black_stone_img=pygame.transform.smoothscale(pygame.image.load("images/black.png"),(stone_w,stone_h)).convert_alpha()
