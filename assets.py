@@ -1682,8 +1682,8 @@ class Board:
 
         self.turn=False
 
-        y=200
-        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(100,200),(300,y),8,10,increase_white,increase_black)
+        y=120
+        self.particles=Go_particles(self.white_stone_img,self.black_stone_img,(300,200),(100,y),10,increase_white,increase_black)
 
 
     def draw(self,surface):
@@ -1760,7 +1760,7 @@ class Board:
         for i in self.taken:
             x = self.rect.x + i[0] * self.tile_width
             y = self.rect.y +i[1] * self.tile_height
-            self.particles.add_particle(x,y,"White" if player==1 else "Black")
+            self.particles.add_particle(x,y,"Black" if player==1 else "White")
 
         score=ch_score_board(self.board)
         self.white_ter=score[1]
@@ -2267,20 +2267,19 @@ class Pass_confirm:
         self.label.draw(surface)
 import random
 class Go_particles:
-    def __init__(self,White,Black,white_target,black_target,min_vel,max_vel,white_func,black_func):
+    def __init__(self,White,Black,white_target,black_target,vel,white_func,black_func):
         self.particles=[]
         self.w=White
         self.b=Black
         self.wt=white_target
         self.bt=black_target
-        self.mv=min_vel
-        self.mxv=max_vel
+        self.v=vel
 
         self.white_func=white_func
         self.black_func=black_func
     def add_particle(self,x,y,color):
         t=self.wt if color=="White" else self.bt
-        self.particles.append(Particle1(x,y,random.randint(self.mv,self.mxv),t[0],t[1],color))
+        self.particles.append(Particle1(x,y,self.v,t[0],t[1],color))
     def update(self):
         for i in range(len(self.particles)-1,-1,-1):
             j=self.particles[i]
@@ -2299,10 +2298,10 @@ class Go_particles:
             surface.blit(img,rect)
 
 class Particle1:
-    def __init__(self,x,y,init_vel,tx,ty,info=None):
+    def __init__(self,x,y,v,tx,ty,info=None,):
         self.pos=pygame.Vector2(x,y)
         self.vel=pygame.Vector2(tx-x,ty-y)
-        self.vel.scale_to_length(init_vel)
+        self.vel.scale_to_length(v)
         print(self.vel)
         self.tx=tx
         self.ty=ty
